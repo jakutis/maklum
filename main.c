@@ -24,7 +24,7 @@ int main(int argc, const char **argv) {
             return main_error(&params, 0, "nepateiktas šifruojamo failo vardas");
         }
         if(argc == 3) {
-            return main_error(&params, 0, "nepateiktas užšifruotuo failo vardas");
+            return main_error(&params, 0, "nepateiktas užšifruoto failo vardas");
         }
         return main_encrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "issifruoti") == 0) {
