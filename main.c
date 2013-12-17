@@ -60,6 +60,10 @@ void main_read_text(main_params *params, char *text, size_t text_length) {
         text[i] = (char)c;
     }
     text[i + 1] = 0;
+
+    OPENSSL_cleanse(&i, sizeof(size_t));
+    OPENSSL_cleanse(&c, sizeof(int));
+
     fprintf(params->out, "\n");
 }
 
@@ -73,6 +77,9 @@ int main_read_yesno(main_params *params, const char *positive_response) {
 
     main_read_text(params, response, n);
     result = strcmp(response, positive_response) == 0;
+
+    OPENSSL_cleanse(&n, sizeof(size_t));
+    OPENSSL_cleanse(response, (n + 1) * sizeof(char));
 
     free(response);
 
@@ -97,10 +104,12 @@ int main_read_integer(main_params *params, size_t *integer) {
     char *string;
     size_t n;
 
-    n = main_digits(SIZE_MAX);
+    main_digits(SIZE_MAX, &n);
     string = malloc((n + 1) * sizeof(char));
     main_read_text(params, string, n);
     result = main_string_to_integer(string, integer);
+
+    OPENSSL_cleanse(string, (n + 1) * sizeof(char));
 
     free(string);
     return result;
@@ -114,6 +123,8 @@ int main_aes(const unsigned char *in, unsigned char *out,
         return EXIT_FAILURE;
     }
     AES_encrypt(in, out, &aes_key);
+
+    OPENSSL_cleanse(&aes_key, sizeof(AES_KEY));
 
     return EXIT_SUCCESS;
 }
@@ -131,18 +142,16 @@ int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id,
         result = EXIT_FAILURE;
     }
 
+    OPENSSL_cleanse(nonce, 16 * sizeof(char));
+
     free(nonce);
     return result;
 }
 
-size_t main_digits(size_t n) {
-    size_t d;
-
-    for(d = 1; n > 9; d += 1) {
+void main_digits(size_t n, size_t *d) {
+    for(*d = 1; n > 9; *d += 1) {
         n /= 10;
     }
-
-    return d;
 }
 
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
@@ -185,6 +194,13 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         fprintf(params->out, "Įrašyta paskutinių šifrogramos baitų: %d\n",
                 ciphertext_available);
     }
+
+    OPENSSL_cleanse(plaintext, params->pipe_buffer_size *
+            sizeof(char));
+    OPENSSL_cleanse(ciphertext, params->pipe_buffer_size *
+            sizeof(char));
+    OPENSSL_cleanse(&plaintext_available, sizeof(size_t));
+    OPENSSL_cleanse(&ciphertext_available, sizeof(int));
 
     free(plaintext);
     free(ciphertext);
@@ -278,6 +294,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                         EVP_aes_256_ctr(), NULL, key, iv) != 1) {
                 result = main_error(params, 1, "EVP_EncryptInit_ex");
             }
+            /* TODO do not write sizeof_size_t, ciphertext_length */
             if(result == EXIT_SUCCESS && fputc(sizeof(size_t),
                         ciphertext_file) == EOF) {
                 result = main_error(params, 1, "fputc");
@@ -332,6 +349,14 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     " failo");
         }
     }
+    OPENSSL_cleanse(&ciphertext_length_position, sizeof(fpos_t));
+    OPENSSL_cleanse(&ciphertext_length, sizeof(size_t));
+    OPENSSL_cleanse(password, (params->password_length + 1) * sizeof(char));
+    OPENSSL_cleanse(key, key_length * sizeof(char));
+    OPENSSL_cleanse(iv, 16 * sizeof(char));
+    OPENSSL_cleanse(key_salt, params->key_salt_length * sizeof(char));
+    OPENSSL_cleanse(user_id, (params->user_id_length + 1) * sizeof(char));
+    OPENSSL_cleanse(message_id, (params->message_id_length + 1) * sizeof(char));
     EVP_CIPHER_CTX_free(ctx);
     free(password);
     free(iv);
@@ -384,6 +409,11 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         fprintf(params->out, "Įrašyta paskutinių tekstogramos baitų: %d\n",
                 plaintext_available);
     }
+
+    OPENSSL_cleanse(ciphertext, params->pipe_buffer_size * sizeof(char));
+    OPENSSL_cleanse(plaintext, params->pipe_buffer_size * sizeof(char));
+    OPENSSL_cleanse(&ciphertext_available, sizeof(size_t));
+    OPENSSL_cleanse(&plaintext_available, sizeof(int));
 
     free(plaintext);
     free(ciphertext);
@@ -502,6 +532,14 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                     " failo");
         }
     }
+    OPENSSL_cleanse(password, (params->password_length + 1) * sizeof(char));
+    OPENSSL_cleanse(key, key_length * sizeof(char));
+    OPENSSL_cleanse(iv, 16 * sizeof(char));
+    OPENSSL_cleanse(key_salt, params->key_salt_length * sizeof(char));
+    OPENSSL_cleanse(message_id, (params->message_id_length + 1) * sizeof(char));
+    OPENSSL_cleanse(user_id, (params->user_id_length + 1) * sizeof(char));
+    OPENSSL_cleanse(&size_t_size, sizeof(char));
+    OPENSSL_cleanse(&ciphertext_length, sizeof(size_t));
     EVP_CIPHER_CTX_free(ctx);
     free(password);
     free(iv);

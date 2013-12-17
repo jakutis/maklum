@@ -17,7 +17,7 @@ typedef struct {
     size_t key_salt_length;
 } main_params;
 
-size_t main_digits(size_t n);
+void main_digits(size_t n, size_t *d);
 
 int main_string_to_integer(char *string, size_t *integer);
 
