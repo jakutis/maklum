@@ -161,7 +161,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *
     }
     if(result == EXIT_SUCCESS) {
         *out_length += (size_t)ciphertext_available;
-        fprintf(params->out, "Įrašytą paskutinių šifrogramos baitų: %d\n", ciphertext_available);
+        fprintf(params->out, "Įrašyta paskutinių šifrogramos baitų: %d\n", ciphertext_available);
     }
 
     free(plaintext);
