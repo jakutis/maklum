@@ -259,6 +259,16 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             }
         }
     }
+    if(ciphertext_file != NULL) {
+        if(fclose(ciphertext_file) == EOF) {
+            result = main_error(params, 1, "nepavyko uždaryti šifrogramos failo");
+        }
+    }
+    if(plaintext_file != NULL) {
+        if(fclose(plaintext_file) == EOF) {
+            result = main_error(params, 1, "nepavyko uždaryti tekstogramos failo");
+        }
+    }
     EVP_CIPHER_CTX_free(ctx);
     free(password);
     free(iv);
