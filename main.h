@@ -32,9 +32,11 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
 
 void main_read_text(main_params *params, char *text, size_t text_length);
 
-int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id, char *message_id);
+int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id,
+        char *message_id);
 
-int main_aes(const unsigned char *in, unsigned char *out, const unsigned char *key);
+int main_aes(const unsigned char *in, unsigned char *out,
+        const unsigned char *key);
 
 int main_read_integer(main_params *params, size_t *integer);
 
