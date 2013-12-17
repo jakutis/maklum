@@ -276,5 +276,9 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     free(key_salt);
     free(user_id);
     free(message_id);
+
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Užšifravimo operacija baigta vykdyti sėkmingai\n");
+    }
     return result;
 }
