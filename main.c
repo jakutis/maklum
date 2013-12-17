@@ -28,7 +28,13 @@ int main(int argc, const char **argv) {
         }
         return main_encrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "issifruoti") == 0) {
-        return main_error(&params, 1, "operacija dar neįgyvendinta");
+        if(argc == 2) {
+            return main_error(&params, 0, "nepateiktas šifrogramos failo vardas");
+        }
+        if(argc == 3) {
+            return main_error(&params, 0, "nepateiktas tekstogramos failo vardas");
+        }
+        return main_decrypt(&params, argv[2], argv[3]);
     } else {
         return main_error(&params, 0, "neatpažintas operacijos pavadinimas (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\")");
     }
@@ -279,6 +285,71 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
 
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Užšifravimo operacija baigta vykdyti sėkmingai\n");
+    }
+    return result;
+}
+
+/*int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *out, size_t out_length) {*/
+int main_decrypt_pipe() {
+    return EXIT_FAILURE;
+}
+
+int main_decrypt(main_params *params, const char *ciphertext_filename, const char *plaintext_filename) {
+    int result = EXIT_SUCCESS;
+
+    FILE *plaintext_file = NULL;
+    FILE *ciphertext_file = NULL;
+    size_t ciphertext_length = 0;
+    unsigned char size_t_size = 0;
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+
+    if(result == EXIT_SUCCESS) {
+        ciphertext_file = fopen(ciphertext_filename, "rb");
+        if(ciphertext_file == NULL) {
+            result = main_error(params, 0, "nepavyko atidaryti šifrogramos failo");
+        }
+    }
+    if(result == EXIT_SUCCESS) {
+        plaintext_file = fopen(plaintext_filename, "wb");
+        if(plaintext_file == NULL) {
+            result = main_error(params, 0, "nepavyko atidaryti tekstogramos failo");
+        }
+    }
+    if(result == EXIT_SUCCESS) {
+        fread(&size_t_size, 1, 1, ciphertext_file);
+        if(ferror(ciphertext_file)) {
+            result = main_error(params, 1, "fread");
+        }
+    }
+    if(result == EXIT_SUCCESS && size_t_size != sizeof(size_t)) {
+        result = main_error(params, 1, "nepalaikomas šifrogramos failas");
+    }
+    if(result == EXIT_SUCCESS) {
+        fread(&ciphertext_length, sizeof(size_t), 1, ciphertext_file);
+        if(ferror(ciphertext_file)) {
+            result = main_error(params, 1, "nepavyko nuskaityti šifrogramos ilgio");
+        }
+    }
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Šifrogramos ilgis: %zu\n", ciphertext_length);
+    }
+    if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx, ciphertext_file, plaintext_file, ciphertext_length) != EXIT_SUCCESS) {
+        result = main_error(params, 1, "main_decrypt_pipe");
+    }
+    if(ciphertext_file != NULL) {
+        if(fclose(ciphertext_file) == EOF) {
+            result = main_error(params, 1, "nepavyko uždaryti šifrogramos failo");
+        }
+    }
+    if(plaintext_file != NULL) {
+        if(fclose(plaintext_file) == EOF) {
+            result = main_error(params, 1, "nepavyko uždaryti tekstogramos failo");
+        }
+    }
+    EVP_CIPHER_CTX_free(ctx);
+
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Iššifravimo operacija baigta vykdyti sėkmingai\n");
     }
     return result;
 }

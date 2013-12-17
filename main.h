@@ -21,6 +21,12 @@ int main_string_to_integer(char *string, size_t *integer);
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out, size_t *out_length);
 
+int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
+        FILE *out, size_t out_length);
+
+int main_decrypt(main_params *params, const char *ciphertext_filename,
+        const char *plaintext_filename);
+
 int main_encrypt(main_params *params, const char *plaintext_filename,
         const char* encrypted_filename);
 
