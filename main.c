@@ -15,6 +15,9 @@ int main(int argc, const char **argv) {
     params.password_length = 50;
     params.pbkdf2_iterations = 100;
     params.pipe_buffer_size = 100000;
+    params.key_salt_length = 32;
+    params.message_id_length = 8;
+    params.user_id_length = 8;
 
     if(argc < 2) {
         return main_error(&params, 0, "nepateiktas operacijos pavadinimas");
@@ -174,14 +177,11 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         const char *ciphertext_filename) {
     int result = EXIT_SUCCESS;
 
-    size_t message_id_length = 8;
-    char *message_id = malloc((message_id_length + 1) * sizeof(char));
-    size_t user_id_length = 8;
-    char *user_id = malloc((user_id_length + 1) * sizeof(char));
+    char *message_id = malloc((params->message_id_length + 1) * sizeof(char));
+    char *user_id = malloc((params->user_id_length + 1) * sizeof(char));
 
     unsigned char *iv = malloc(16 * sizeof(char));
-    size_t key_salt_length = 32;
-    unsigned char *key_salt = malloc(key_salt_length * sizeof(char));
+    unsigned char *key_salt = malloc(params->key_salt_length * sizeof(char));
     size_t key_length = 32;
     unsigned char *key = malloc(key_length * sizeof(char));
     char *password = malloc((params->password_length + 1) * sizeof(char));
@@ -205,10 +205,10 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Suveskite vartotojo identifikatorių (maksimalus ilgis yra %zu): ", user_id_length);
-        main_read_text(params, user_id, user_id_length);
-        fprintf(params->out, "Suveskite šio vartotojo vardu atliekamos užšifravimo operacijos vienkartinį identifikatorių (maksimalus ilgis yra %zu): ", message_id_length);
-        main_read_text(params, message_id, message_id_length);
+        fprintf(params->out, "Suveskite vartotojo identifikatorių (maksimalus ilgis yra %zu): ", params->user_id_length);
+        main_read_text(params, user_id, params->user_id_length);
+        fprintf(params->out, "Suveskite šio vartotojo vardu atliekamos užšifravimo operacijos vienkartinį identifikatorių (maksimalus ilgis yra %zu): ", params->message_id_length);
+        main_read_text(params, message_id, params->message_id_length);
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus ilgis yra %zu): ", params->password_length);
@@ -223,10 +223,10 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         if(main_read_yesno(params, "taip")) {
             fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
 
-            if(RAND_bytes(key_salt, (int)key_salt_length) != 1) {
+            if(RAND_bytes(key_salt, (int)params->key_salt_length) != 1) {
                 result = main_error(params, 1, "RAND_bytes");
             }
-            if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password, (int)strlen(password), key_salt, (int)key_salt_length, (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
+            if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password, (int)strlen(password), key_salt, (int)params->key_salt_length, (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
                 result = main_error(params, 1, "PKCS5_PBKDF2_HMAC_SHA1");
             }
             /*

@@ -12,6 +12,9 @@ typedef struct {
     size_t password_length;
     size_t pbkdf2_iterations;
     size_t pipe_buffer_size;
+    size_t message_id_length;
+    size_t user_id_length;
+    size_t key_salt_length;
 } main_params;
 
 size_t main_digits(size_t n);
