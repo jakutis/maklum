@@ -241,18 +241,23 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv) != 1) {
                 result = main_error(params, 1, "EVP_EncryptInit_ex");
             }
-            /* TODO add metadata to ciphertext_file
-             *
-             * key_salt, user_id, message_id
-             */
             if(result == EXIT_SUCCESS && fputc(sizeof(size_t), ciphertext_file) == EOF) {
                 result = main_error(params, 1, "fputc");
+            }
+            if(result == EXIT_SUCCESS && fwrite(key_salt, sizeof(char), params->key_salt_length, ciphertext_file) < params->key_salt_length) {
+                result = main_error(params, 1, "fwrite (key_salt)");
+            }
+            if(result == EXIT_SUCCESS && fwrite(user_id, sizeof(char), params->user_id_length, ciphertext_file) < params->user_id_length) {
+                result = main_error(params, 1, "fwrite (user_id)");
+            }
+            if(result == EXIT_SUCCESS && fwrite(message_id, sizeof(char), params->message_id_length, ciphertext_file) < params->message_id_length) {
+                result = main_error(params, 1, "fwrite (message_id)");
             }
             if(result == EXIT_SUCCESS && fgetpos(ciphertext_file, &ciphertext_length_position)) {
                 result = main_error(params, 1, "fgetpos");
             }
             if(result == EXIT_SUCCESS && fwrite(&ciphertext_length, sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
-                result = main_error(params, 1, "fwrite");
+                result = main_error(params, 1, "fwrite (ciphertext_length)");
             }
             if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx, plaintext_file, ciphertext_file, &ciphertext_length) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_encrypt_pipe");
