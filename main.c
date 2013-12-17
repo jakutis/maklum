@@ -21,10 +21,10 @@ int main(int argc, const char **argv) {
     }
     if(strcmp(argv[1], "uzsifruoti") == 0) {
         if(argc == 2) {
-            return main_error(&params, 0, "nepateiktas šifruojamo failo vardas");
+            return main_error(&params, 0, "nepateiktas tekstogramos failo vardas");
         }
         if(argc == 3) {
-            return main_error(&params, 0, "nepateiktas užšifruoto failo vardas");
+            return main_error(&params, 0, "nepateiktas šifrogramos failo vardas");
         }
         return main_encrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "issifruoti") == 0) {
@@ -184,15 +184,15 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
 
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
-    }
-    if(plaintext_file == NULL) {
-        result = main_error(params, 0, "nepavyko atidaryti šifruojamo failo");
+        if(plaintext_file == NULL) {
+            result = main_error(params, 0, "nepavyko atidaryti tekstogramos failo");
+        }
     }
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "wb");
-    }
-    if(ciphertext_file == NULL) {
-        result = main_error(params, 0, "nepavyko atidaryti failo užšfiravimui");
+        if(ciphertext_file == NULL) {
+            result = main_error(params, 0, "nepavyko atidaryti šifrogramos failo");
+        }
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Suveskite vartotojo identifikatorių (maksimalus ilgis yra %zu): ", user_id_length);
@@ -204,8 +204,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus ilgis yra %zu): ", params->password_length);
         main_read_text(params, password, params->password_length);
         fprintf(params->out, "Ačiū! Sistema pasiruošusi šifravimo operacijai su tokiais parametrais:\n");
-        fprintf(params->out, "Šifruojamas failas: %s\n", plaintext_filename);
-        fprintf(params->out, "Užšifruotas failas: %s\n", ciphertext_filename);
+        fprintf(params->out, "Tekstogramos failas: %s\n", plaintext_filename);
+        fprintf(params->out, "Šifrogramos failas: %s\n", ciphertext_filename);
         fprintf(params->out, "Vartotojo identifikatorius: %s\n", user_id);
         fprintf(params->out, "Operacijos identifikatorius: %s\n", message_id);
         fprintf(params->out, "Slaptažodis: %s\n", password);
