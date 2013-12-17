@@ -18,7 +18,8 @@ size_t main_digits(size_t n);
 
 int main_string_to_integer(char *string, size_t *integer);
 
-int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *out);
+int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
+        FILE *out, size_t *out_length);
 
 int main_encrypt(main_params *params, const char *plaintext_filename,
         const char* encrypted_filename);

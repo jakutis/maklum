@@ -128,7 +128,7 @@ size_t main_digits(size_t n) {
     return d;
 }
 
-int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *out) {
+int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *out, size_t *out_length) {
     int result = EXIT_SUCCESS;
     size_t plaintext_available;
     int ciphertext_available = 0;
@@ -145,6 +145,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *
             break;
         }
         fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n", ciphertext_available);
+        *out_length += (size_t)ciphertext_available;
     }
     if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext, &ciphertext_available) != 1) {
         result = EXIT_FAILURE;
@@ -153,6 +154,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
+        *out_length += (size_t)ciphertext_available;
         fprintf(params->out, "Įrašytą paskutinių šifrogramos baitų: %d\n", ciphertext_available);
     }
 
@@ -181,6 +183,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
 
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
+    size_t ciphertext_length = 0;
+    fpos_t ciphertext_length_position;
 
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
@@ -235,11 +239,23 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
              *
              * key_salt, user_id, message_id
              */
-            if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx, plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
+            if(result == EXIT_SUCCESS && fputc(sizeof(size_t), ciphertext_file) == EOF) {
+                result = main_error(params, 1, "fputc");
+            }
+            if(result == EXIT_SUCCESS && fgetpos(ciphertext_file, &ciphertext_length_position)) {
+                result = main_error(params, 1, "fgetpos");
+            }
+            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length, sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
+                result = main_error(params, 1, "fwrite");
+            }
+            if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx, plaintext_file, ciphertext_file, &ciphertext_length) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_encrypt_pipe");
             }
-            if(result == EXIT_SUCCESS) {
-                fprintf(params->out, "Šifravimo operacija baigta vykdyti sėkmingai\n");
+            if(result == EXIT_SUCCESS && fsetpos(ciphertext_file, &ciphertext_length_position)) {
+                result = main_error(params, 1, "fsetpos");
+            }
+            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length, sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
+                result = main_error(params, 1, "fwrite");
             }
         }
     }
