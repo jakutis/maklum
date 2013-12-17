@@ -25,7 +25,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out, size_t *out_length);
 
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
-        FILE *out, size_t out_length);
+        FILE *out);
 
 int main_decrypt(main_params *params, const char *ciphertext_filename,
         const char *plaintext_filename);
