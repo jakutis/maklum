@@ -34,6 +34,8 @@ A cryptographic system that was implemented as an exercise for [Cryptographic Sy
 
 ## Development
 
+The C code must comply with the ISO/IEC 9899:1990, i.e. C89 or C90 or ANSI C.
+
     TODO
 
 ## License
