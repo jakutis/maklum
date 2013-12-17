@@ -24,22 +24,27 @@ int main(int argc, const char **argv) {
     }
     if(strcmp(argv[1], "uzsifruoti") == 0) {
         if(argc == 2) {
-            return main_error(&params, 0, "nepateiktas tekstogramos failo vardas");
+            return main_error(&params, 0,
+                    "nepateiktas tekstogramos failo vardas");
         }
         if(argc == 3) {
-            return main_error(&params, 0, "nepateiktas šifrogramos failo vardas");
+            return main_error(&params, 0,
+                    "nepateiktas šifrogramos failo vardas");
         }
         return main_encrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "issifruoti") == 0) {
         if(argc == 2) {
-            return main_error(&params, 0, "nepateiktas šifrogramos failo vardas");
+            return main_error(&params, 0,
+                    "nepateiktas šifrogramos failo vardas");
         }
         if(argc == 3) {
-            return main_error(&params, 0, "nepateiktas tekstogramos failo vardas");
+            return main_error(&params, 0,
+                    "nepateiktas tekstogramos failo vardas");
         }
         return main_decrypt(&params, argv[2], argv[3]);
     } else {
-        return main_error(&params, 0, "neatpažintas operacijos pavadinimas (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\")");
+        return main_error(&params, 0, "neatpažintas operacijos pavadinimas"
+                " (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\")");
     }
 }
 
@@ -75,7 +80,8 @@ int main_read_yesno(main_params *params, const char *positive_response) {
 }
 
 int main_error(main_params *params, int type, const char *message) {
-    fprintf(params->out, "%s klaida: %s.\n", type == 0 ? "Vartotojo" : "Sisteminė", message);
+    fprintf(params->out, "%s klaida: %s.\n", type == 0 ? "Vartotojo" :
+            "Sisteminė", message);
     return EXIT_FAILURE;
 }
 
@@ -100,7 +106,8 @@ int main_read_integer(main_params *params, size_t *integer) {
     return result;
 }
 
-int main_aes(const unsigned char *in, unsigned char *out, const unsigned char *key) {
+int main_aes(const unsigned char *in, unsigned char *out,
+        const unsigned char *key) {
     AES_KEY aes_key;
 
     if(AES_set_encrypt_key(key, 256, &aes_key) != 0) {
@@ -111,7 +118,8 @@ int main_aes(const unsigned char *in, unsigned char *out, const unsigned char *k
     return EXIT_SUCCESS;
 }
 
-int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id, char *message_id) {
+int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id,
+        char *message_id) {
     int result = EXIT_SUCCESS;
     unsigned char *nonce;
 
@@ -137,7 +145,8 @@ size_t main_digits(size_t n) {
     return d;
 }
 
-int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *out, size_t *out_length) {
+int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
+        FILE *out, size_t *out_length) {
     int result = EXIT_SUCCESS;
     size_t plaintext_available;
     int ciphertext_available = 0;
@@ -145,26 +154,36 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *
     unsigned char *ciphertext = malloc(params->pipe_buffer_size * sizeof(char));
 
     while(!feof(in)) {
-        plaintext_available = fread(plaintext, sizeof(char), params->pipe_buffer_size, in);
-        fprintf(params->out, "Nuskaityta tekstogramos baitų: %zu\n", plaintext_available);
+        plaintext_available = fread(plaintext, sizeof(char),
+                params->pipe_buffer_size, in);
+        fprintf(params->out, "Nuskaityta tekstogramos baitų: %zu\n",
+                plaintext_available);
         if(ferror(in) ||
-                EVP_EncryptUpdate(ctx, ciphertext, &ciphertext_available, plaintext, (int)plaintext_available) != 1 ||
-                fwrite(ciphertext, sizeof(char), (size_t)ciphertext_available, out) < (size_t)ciphertext_available) {
+                EVP_EncryptUpdate(ctx, ciphertext,
+                    &ciphertext_available, plaintext,
+                    (int)plaintext_available) != 1 ||
+                fwrite(ciphertext, sizeof(char), (size_t)ciphertext_available,
+                    out) < (size_t)ciphertext_available) {
             result = EXIT_FAILURE;
             break;
         }
-        fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n", ciphertext_available);
+        fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
+                ciphertext_available);
         *out_length += (size_t)ciphertext_available;
     }
-    if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext, &ciphertext_available) != 1) {
+    if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext,
+                &ciphertext_available) != 1) {
         result = EXIT_FAILURE;
     }
-    if(result == EXIT_SUCCESS && fwrite(ciphertext, sizeof(char), (size_t)ciphertext_available, out) < (size_t)ciphertext_available) {
+    if(result == EXIT_SUCCESS && fwrite(ciphertext, sizeof(char),
+                (size_t)ciphertext_available, out) <
+                (size_t)ciphertext_available) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
         *out_length += (size_t)ciphertext_available;
-        fprintf(params->out, "Įrašyta paskutinių šifrogramos baitų: %d\n", ciphertext_available);
+        fprintf(params->out, "Įrašyta paskutinių šifrogramos baitų: %d\n",
+                ciphertext_available);
     }
 
     free(plaintext);
@@ -195,25 +214,32 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
         if(plaintext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti tekstogramos failo");
+            result = main_error(params, 0, "nepavyko atidaryti tekstogramos"
+                    " failo");
         }
     }
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "wb");
         if(ciphertext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti šifrogramos failo");
+            result = main_error(params, 0, "nepavyko atidaryti šifrogramos"
+                    " failo");
         }
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Suveskite vartotojo identifikatorių (maksimalus ilgis yra %zu): ", params->user_id_length);
+        fprintf(params->out, "Suveskite vartotojo identifikatorių (maksimalus"
+                " ilgis yra %zu): ", params->user_id_length);
         main_read_text(params, user_id, params->user_id_length);
-        fprintf(params->out, "Suveskite šio vartotojo vardu atliekamos užšifravimo operacijos vienkartinį identifikatorių (maksimalus ilgis yra %zu): ", params->message_id_length);
+        fprintf(params->out, "Suveskite šio vartotojo vardu atliekamos"
+                " užšifravimo operacijos vienkartinį identifikatorių"
+                " (maksimalus ilgis yra %zu): ", params->message_id_length);
         main_read_text(params, message_id, params->message_id_length);
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus ilgis yra %zu): ", params->password_length);
+        fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
+                " ilgis yra %zu): ", params->password_length);
         main_read_text(params, password, params->password_length);
-        fprintf(params->out, "Ačiū! Sistema pasiruošusi šifravimo operacijai su tokiais parametrais:\n");
+        fprintf(params->out, "Ačiū! Sistema pasiruošusi šifravimo operacijai"
+                " su tokiais parametrais:\n");
         fprintf(params->out, "Tekstogramos failas: %s\n", plaintext_filename);
         fprintf(params->out, "Šifrogramos failas: %s\n", ciphertext_filename);
         fprintf(params->out, "Vartotojo identifikatorius: %s\n", user_id);
@@ -226,58 +252,84 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             if(RAND_bytes(key_salt, (int)params->key_salt_length) != 1) {
                 result = main_error(params, 1, "RAND_bytes");
             }
-            if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password, (int)strlen(password), key_salt, (int)params->key_salt_length, (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
+            if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
+                        (int)strlen(password), key_salt,
+                        (int)params->key_salt_length,
+                        (int)params->pbkdf2_iterations,
+                        (int)key_length, key) != 1) {
                 result = main_error(params, 1, "PKCS5_PBKDF2_HMAC_SHA1");
             }
             /*
-             * 2010 - Niels Ferguson, Bruce Schneier, Tadayoshi Kohno - Cryptography Engineering - Design Principles and Practical Applications:
-             * As with OFB mode, you must make absolutely sure never to reuse a singlekey / nonce combination.
+             * 2010 - Niels Ferguson, Bruce Schneier, Tadayoshi Kohno -
+             * Cryptography Engineering - Design Principles and Practical
+             * Applications:
+             * As with OFB mode, you must make absolutely sure never to reuse
+             * a singlekey / nonce combination.
              *
-             * Instead of a random IV (RAND_bytes) we derive IV from user_id and message_id to rule out IV collision, which is more probable when more and more encryption operations are done.
+             * Instead of a random IV (RAND_bytes) we derive IV from user_id
+             * and message_id to rule out IV collision, which is more probable
+             * when more and more encryption operations are done.
              */
-            if(result == EXIT_SUCCESS && main_set_iv(iv, key, user_id, message_id) != EXIT_SUCCESS) {
+            if(result == EXIT_SUCCESS && main_set_iv(iv, key, user_id,
+                        message_id) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_set_iv");
             }
-            if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv) != 1) {
+            if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
+                        EVP_aes_256_ctr(), NULL, key, iv) != 1) {
                 result = main_error(params, 1, "EVP_EncryptInit_ex");
             }
-            if(result == EXIT_SUCCESS && fputc(sizeof(size_t), ciphertext_file) == EOF) {
+            if(result == EXIT_SUCCESS && fputc(sizeof(size_t),
+                        ciphertext_file) == EOF) {
                 result = main_error(params, 1, "fputc");
             }
-            if(result == EXIT_SUCCESS && fwrite(key_salt, sizeof(char), params->key_salt_length, ciphertext_file) < params->key_salt_length) {
+            if(result == EXIT_SUCCESS && fwrite(key_salt, sizeof(char),
+                        params->key_salt_length, ciphertext_file) <
+                    params->key_salt_length) {
                 result = main_error(params, 1, "fwrite (key_salt)");
             }
-            if(result == EXIT_SUCCESS && fwrite(user_id, sizeof(char), params->user_id_length, ciphertext_file) < params->user_id_length) {
+            if(result == EXIT_SUCCESS && fwrite(user_id, sizeof(char),
+                        params->user_id_length, ciphertext_file) <
+                    params->user_id_length) {
                 result = main_error(params, 1, "fwrite (user_id)");
             }
-            if(result == EXIT_SUCCESS && fwrite(message_id, sizeof(char), params->message_id_length, ciphertext_file) < params->message_id_length) {
+            if(result == EXIT_SUCCESS && fwrite(message_id, sizeof(char),
+                        params->message_id_length, ciphertext_file) <
+                    params->message_id_length) {
                 result = main_error(params, 1, "fwrite (message_id)");
             }
-            if(result == EXIT_SUCCESS && fgetpos(ciphertext_file, &ciphertext_length_position)) {
+            if(result == EXIT_SUCCESS && fgetpos(ciphertext_file,
+                        &ciphertext_length_position)) {
                 result = main_error(params, 1, "fgetpos");
             }
-            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length, sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
+            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length,
+                        sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
                 result = main_error(params, 1, "fwrite (ciphertext_length)");
             }
-            if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx, plaintext_file, ciphertext_file, &ciphertext_length) != EXIT_SUCCESS) {
+            if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
+                        plaintext_file, ciphertext_file,
+                        &ciphertext_length) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_encrypt_pipe");
             }
-            if(result == EXIT_SUCCESS && fsetpos(ciphertext_file, &ciphertext_length_position)) {
+            if(result == EXIT_SUCCESS && fsetpos(ciphertext_file,
+                        &ciphertext_length_position)) {
                 result = main_error(params, 1, "fsetpos");
             }
-            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length, sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
+            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length,
+                        sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
                 result = main_error(params, 1, "fwrite");
             }
         }
     }
     if(ciphertext_file != NULL) {
         if(fclose(ciphertext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti šifrogramos failo");
+            result = main_error(params, 1, "nepavyko uždaryti šifrogramos"
+                    " failo");
         }
     }
     if(plaintext_file != NULL) {
         if(fclose(plaintext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti tekstogramos failo");
+            result = main_error(params, 1, "nepavyko uždaryti tekstogramos"
+                    " failo");
         }
     }
     EVP_CIPHER_CTX_free(ctx);
@@ -289,12 +341,14 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     free(message_id);
 
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Užšifravimo operacija baigta vykdyti sėkmingai\n");
+        fprintf(params->out, "Užšifravimo operacija baigta vykdyti"
+                " sėkmingai\n");
     }
     return result;
 }
 
-int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *out) {
+int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
+        FILE *out) {
     int result = EXIT_SUCCESS;
     size_t ciphertext_available;
     int plaintext_available = 0;
@@ -302,24 +356,33 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *
     unsigned char *ciphertext = malloc(params->pipe_buffer_size * sizeof(char));
 
     while(!feof(in)) {
-        ciphertext_available = fread(ciphertext, sizeof(char), params->pipe_buffer_size, in);
-        fprintf(params->out, "Nuskaityta šifrogramos baitų: %zu\n", ciphertext_available);
+        ciphertext_available = fread(ciphertext, sizeof(char),
+                params->pipe_buffer_size, in);
+        fprintf(params->out, "Nuskaityta šifrogramos baitų: %zu\n",
+                ciphertext_available);
         if(ferror(in) ||
-                EVP_DecryptUpdate(ctx, plaintext, &plaintext_available, ciphertext, (int)ciphertext_available) != 1 ||
-                fwrite(plaintext, sizeof(char), (size_t)plaintext_available, out) < (size_t)plaintext_available) {
+                EVP_DecryptUpdate(ctx, plaintext, &plaintext_available,
+                    ciphertext, (int)ciphertext_available) != 1 ||
+                fwrite(plaintext, sizeof(char), (size_t)plaintext_available,
+                    out) < (size_t)plaintext_available) {
             result = EXIT_FAILURE;
             break;
         }
-        fprintf(params->out, "Įrašyta tekstogramos baitų: %d\n", plaintext_available);
+        fprintf(params->out, "Įrašyta tekstogramos baitų: %d\n",
+                plaintext_available);
     }
-    if(result == EXIT_SUCCESS && EVP_DecryptFinal_ex(ctx, plaintext, &plaintext_available) != 1) {
+    if(result == EXIT_SUCCESS && EVP_DecryptFinal_ex(ctx, plaintext,
+                &plaintext_available) != 1) {
         result = EXIT_FAILURE;
     }
-    if(result == EXIT_SUCCESS && fwrite(plaintext, sizeof(char), (size_t)plaintext_available, out) < (size_t)plaintext_available) {
+    if(result == EXIT_SUCCESS && fwrite(plaintext, sizeof(char),
+                (size_t)plaintext_available, out) <
+            (size_t)plaintext_available) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Įrašyta paskutinių tekstogramos baitų: %d\n", plaintext_available);
+        fprintf(params->out, "Įrašyta paskutinių tekstogramos baitų: %d\n",
+                plaintext_available);
     }
 
     free(plaintext);
@@ -328,7 +391,8 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in, FILE *
     return result;
 }
 
-int main_decrypt(main_params *params, const char *ciphertext_filename, const char *plaintext_filename) {
+int main_decrypt(main_params *params, const char *ciphertext_filename,
+        const char *plaintext_filename) {
     int result = EXIT_SUCCESS;
 
     FILE *plaintext_file = NULL;
@@ -349,13 +413,15 @@ int main_decrypt(main_params *params, const char *ciphertext_filename, const cha
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "rb");
         if(ciphertext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti šifrogramos failo");
+            result = main_error(params, 0, "nepavyko atidaryti šifrogramos"
+                    " failo");
         }
     }
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "wb");
         if(plaintext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti tekstogramos failo");
+            result = main_error(params, 0, "nepavyko atidaryti tekstogramos"
+                    " failo");
         }
     }
     if(result == EXIT_SUCCESS) {
@@ -397,34 +463,43 @@ int main_decrypt(main_params *params, const char *ciphertext_filename, const cha
     if(result == EXIT_SUCCESS) {
         fread(&ciphertext_length, sizeof(size_t), 1, ciphertext_file);
         if(ferror(ciphertext_file)) {
-            result = main_error(params, 1, "nepavyko nuskaityti šifrogramos ilgio");
+            result = main_error(params, 1, "nepavyko nuskaityti šifrogramos"
+                    " ilgio");
         }
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Šifrogramos ilgis: %zu\n", ciphertext_length);
-        fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus ilgis yra %zu): ", params->password_length);
+        fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus"
+                " ilgis yra %zu): ", params->password_length);
         main_read_text(params, password, params->password_length);
     }
-    if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password, (int)strlen(password), key_salt, (int)params->key_salt_length, (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
+    if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
+                (int)strlen(password), key_salt, (int)params->key_salt_length,
+                (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
         result = main_error(params, 1, "PKCS5_PBKDF2_HMAC_SHA1");
     }
-    if(result == EXIT_SUCCESS && main_set_iv(iv, key, user_id, message_id) != EXIT_SUCCESS) {
+    if(result == EXIT_SUCCESS && main_set_iv(iv, key, user_id,
+                message_id) != EXIT_SUCCESS) {
         result = main_error(params, 1, "main_set_iv");
     }
-    if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv) != 1) {
+    if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(),
+                NULL, key, iv) != 1) {
         result = main_error(params, 1, "EVP_EncryptInit_ex");
     }
-    if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx, ciphertext_file, plaintext_file) != EXIT_SUCCESS) {
+    if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx,
+                ciphertext_file, plaintext_file) != EXIT_SUCCESS) {
         result = main_error(params, 1, "main_decrypt_pipe");
     }
     if(ciphertext_file != NULL) {
         if(fclose(ciphertext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti šifrogramos failo");
+            result = main_error(params, 1, "nepavyko uždaryti šifrogramos"
+                    " failo");
         }
     }
     if(plaintext_file != NULL) {
         if(fclose(plaintext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti tekstogramos failo");
+            result = main_error(params, 1, "nepavyko uždaryti tekstogramos"
+                    " failo");
         }
     }
     EVP_CIPHER_CTX_free(ctx);
@@ -437,7 +512,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename, const cha
 
 
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Iššifravimo operacija baigta vykdyti sėkmingai\n");
+        fprintf(params->out, "Iššifravimo operacija baigta vykdyti"
+                " sėkmingai\n");
     }
     return result;
 }
