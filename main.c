@@ -147,7 +147,7 @@ int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id,
 
     nonce = malloc(16 * sizeof(char));
     memcpy(nonce, user_id, 8);
-    memcpy(nonce, message_id, 8);
+    memcpy(nonce + 8, message_id, 8);
 
     if(main_aes(nonce, iv, key) != EXIT_SUCCESS) {
         result = EXIT_FAILURE;
