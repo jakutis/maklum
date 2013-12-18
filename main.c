@@ -12,6 +12,7 @@ int main(int argc, const char **argv) {
     size_t size_t_bytes = sizeof(size_t);
     main_params params;
 
+    params.debug = 0;
     params.in = stdin;
     params.out = stdout;
     params.password_length = 50;
@@ -306,7 +307,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                         message_id) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_set_iv");
             }
-            if(result == EXIT_SUCCESS) {
+            if(result == EXIT_SUCCESS && params->debug) {
                 fprintf(params->out, "Pradedamas užšifravimas, IV=");
                 main_write_bytes_hex(params, iv, params->iv_length);
                 fprintf(params->out, ", KEY=");
@@ -504,7 +505,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                 message_id) != EXIT_SUCCESS) {
         result = main_error(params, 1, "main_set_iv");
     }
-    if(result == EXIT_SUCCESS) {
+    if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "Pradedamas iššifravimas, IV=");
         main_write_bytes_hex(params, iv, params->iv_length);
         fprintf(params->out, ", KEY=");

@@ -9,6 +9,7 @@
 typedef struct {
     FILE *in;
     FILE *out;
+    size_t debug;
     size_t password_length;
     size_t pbkdf2_iterations;
     size_t pipe_buffer_size;
