@@ -9,7 +9,9 @@
 #include "main.h"
 
 int main(int argc, const char **argv) {
+    size_t size_t_bytes = sizeof(size_t);
     main_params params;
+
     params.in = stdin;
     params.out = stdout;
     params.password_length = 50;
@@ -18,6 +20,15 @@ int main(int argc, const char **argv) {
     params.key_salt_length = 32;
     params.message_id_length = 8;
     params.user_id_length = 8;
+    params.size_t_format = NULL;
+
+    if(sizeof(short int) == size_t_bytes) {
+        params.size_t_format = "%hu";
+    } else if(sizeof(int) == size_t_bytes) {
+        params.size_t_format = "%u";
+    } else if(sizeof(long int) == size_t_bytes) {
+        params.size_t_format = "%lu";
+    }
 
     if(argc < 2) {
         return main_error(&params, 0, "nepateiktas operacijos pavadinimas");
@@ -92,8 +103,8 @@ int main_error(main_params *params, int type, const char *message) {
     return EXIT_FAILURE;
 }
 
-int main_string_to_integer(char *string, size_t *integer) {
-    if(sscanf(string, "%zu", integer) == 1) {
+int main_string_to_integer(main_params *params, char *string, size_t *integer) {
+    if(sscanf(string, params->size_t_format, integer) == 1) {
         return EXIT_SUCCESS;
     }
     return EXIT_FAILURE;
@@ -107,7 +118,7 @@ int main_read_integer(main_params *params, size_t *integer) {
     main_digits(SIZE_MAX, &n);
     string = malloc((n + 1) * sizeof(char));
     main_read_text(params, string, n);
-    result = main_string_to_integer(string, integer);
+    result = main_string_to_integer(params, string, integer);
 
     OPENSSL_cleanse(string, (n + 1) * sizeof(char));
 
@@ -165,8 +176,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     while(!feof(in)) {
         plaintext_available = fread(plaintext, sizeof(char),
                 params->pipe_buffer_size, in);
-        fprintf(params->out, "Nuskaityta tekstogramos baitų: %zu\n",
-                plaintext_available);
+        fprintf(params->out, "Nuskaityta tekstogramos baitų: ");
+        main_write_size_t(params, plaintext_available);
+        fprintf(params->out, "\n");
         if(ferror(in) ||
                 EVP_EncryptUpdate(ctx, ciphertext,
                     &ciphertext_available, plaintext,
@@ -239,16 +251,22 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Suveskite vartotojo identifikatorių (maksimalus"
-                " ilgis yra %zu): ", params->user_id_length);
+                " ilgis yra ");
+        main_write_size_t(params, params->user_id_length);
+        fprintf(params->out, "): ");
         main_read_text(params, user_id, params->user_id_length);
         fprintf(params->out, "Suveskite šio vartotojo vardu atliekamos"
                 " užšifravimo operacijos vienkartinį identifikatorių"
-                " (maksimalus ilgis yra %zu): ", params->message_id_length);
+                " (maksimalus ilgis yra ");
+        main_write_size_t(params, params->message_id_length);
+        fprintf(params->out, "): ");
         main_read_text(params, message_id, params->message_id_length);
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
-                " ilgis yra %zu): ", params->password_length);
+                " ilgis yra ");
+        main_write_size_t(params, params->password_length);
+        fprintf(params->out, "): ");
         main_read_text(params, password, params->password_length);
         fprintf(params->out, "Ačiū! Sistema pasiruošusi šifravimo operacijai"
                 " su tokiais parametrais:\n");
@@ -344,6 +362,14 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     return result;
 }
 
+int main_write_size_t(main_params *params, size_t size) {
+    if(params->size_t_format != NULL && fprintf(params->out,
+                params->size_t_format, size) >= 0) {
+        return EXIT_SUCCESS;
+    }
+    return EXIT_FAILURE;
+}
+
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out) {
     int result = EXIT_SUCCESS;
@@ -355,8 +381,9 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     while(!feof(in)) {
         ciphertext_available = fread(ciphertext, sizeof(char),
                 params->pipe_buffer_size, in);
-        fprintf(params->out, "Nuskaityta šifrogramos baitų: %zu\n",
-                ciphertext_available);
+        fprintf(params->out, "Nuskaityta šifrogramos baitų: ");
+        main_write_size_t(params, ciphertext_available);
+        fprintf(params->out, "\n");
         if(ferror(in) ||
                 EVP_DecryptUpdate(ctx, plaintext, &plaintext_available,
                     ciphertext, (int)ciphertext_available) != 1 ||
@@ -454,7 +481,9 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus"
-                " ilgis yra %zu): ", params->password_length);
+                " ilgis yra ");
+        main_write_size_t(params, params->password_length);
+        fprintf(params->out, "): ");
         main_read_text(params, password, params->password_length);
     }
     if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,

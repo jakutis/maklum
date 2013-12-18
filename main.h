@@ -15,11 +15,14 @@ typedef struct {
     size_t message_id_length;
     size_t user_id_length;
     size_t key_salt_length;
+    const char *size_t_format;
 } main_params;
 
 void main_digits(size_t n, size_t *d);
 
-int main_string_to_integer(char *string, size_t *integer);
+int main_write_size_t(main_params *params, size_t size);
+
+int main_string_to_integer(main_params *params, char *string, size_t *integer);
 
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out);
