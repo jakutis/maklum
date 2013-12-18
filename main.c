@@ -17,6 +17,7 @@ int main(int argc, const char **argv) {
     params.password_length = 50;
     params.pbkdf2_iterations = 100;
     params.pipe_buffer_size = 100000;
+    params.iv_length = 16;
     params.key_salt_length = 32;
     params.message_id_length = 8;
     params.user_id_length = 8;
@@ -140,20 +141,21 @@ int main_aes(const unsigned char *in, unsigned char *out,
     return EXIT_SUCCESS;
 }
 
-int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id,
-        char *message_id) {
+int main_set_iv(main_params *params, unsigned char *iv, unsigned char *key,
+        char *user_id, char *message_id) {
     int result = EXIT_SUCCESS;
     unsigned char *nonce;
 
-    nonce = malloc(16 * sizeof(char));
-    memcpy(nonce, user_id, 8);
-    memcpy(nonce + 8, message_id, 8);
+    nonce = malloc(params->iv_length * sizeof(char));
+    memcpy(nonce, user_id, params->user_id_length);
+    memcpy(nonce + params->user_id_length, message_id,
+            params->message_id_length);
 
     if(main_aes(nonce, iv, key) != EXIT_SUCCESS) {
         result = EXIT_FAILURE;
     }
 
-    OPENSSL_cleanse(nonce, 16 * sizeof(char));
+    OPENSSL_cleanse(nonce, params->iv_length * sizeof(char));
 
     free(nonce);
     return result;
@@ -300,9 +302,16 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
              * and message_id to rule out IV collision, which is more probable
              * when more and more encryption operations are done.
              */
-            if(result == EXIT_SUCCESS && main_set_iv(iv, key, user_id,
+            if(result == EXIT_SUCCESS && main_set_iv(params, iv, key, user_id,
                         message_id) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_set_iv");
+            }
+            if(result == EXIT_SUCCESS) {
+                fprintf(params->out, "Pradedamas užšifravimas, IV=");
+                main_write_bytes_hex(params, iv, params->iv_length);
+                fprintf(params->out, ", KEY=");
+                main_write_bytes_hex(params, key, key_length);
+                fprintf(params->out, ".\n");
             }
             if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
                         EVP_aes_256_ctr(), NULL, key, iv) != 1) {
@@ -432,7 +441,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     char *message_id = malloc((params->message_id_length + 1) * sizeof(char));
     char *user_id = malloc((params->user_id_length + 1) * sizeof(char));
 
-    unsigned char *iv = malloc(16 * sizeof(char));
+    unsigned char *iv = malloc(params->iv_length * sizeof(char));
     unsigned char *key_salt = malloc(params->key_salt_length * sizeof(char));
     size_t key_length = 32;
     unsigned char *key = malloc(key_length * sizeof(char));
@@ -491,9 +500,16 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                 (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
         result = main_error(params, 1, "PKCS5_PBKDF2_HMAC_SHA1");
     }
-    if(result == EXIT_SUCCESS && main_set_iv(iv, key, user_id,
+    if(result == EXIT_SUCCESS && main_set_iv(params, iv, key, user_id,
                 message_id) != EXIT_SUCCESS) {
         result = main_error(params, 1, "main_set_iv");
+    }
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Pradedamas iššifravimas, IV=");
+        main_write_bytes_hex(params, iv, params->iv_length);
+        fprintf(params->out, ", KEY=");
+        main_write_bytes_hex(params, key, key_length);
+        fprintf(params->out, ".\n");
     }
     if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(),
                 NULL, key, iv) != 1) {
@@ -517,7 +533,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     }
     OPENSSL_cleanse(password, (params->password_length + 1) * sizeof(char));
     OPENSSL_cleanse(key, key_length * sizeof(char));
-    OPENSSL_cleanse(iv, 16 * sizeof(char));
+    OPENSSL_cleanse(iv, params->iv_length * sizeof(char));
     OPENSSL_cleanse(key_salt, params->key_salt_length * sizeof(char));
     OPENSSL_cleanse(message_id, (params->message_id_length + 1) * sizeof(char));
     OPENSSL_cleanse(user_id, (params->user_id_length + 1) * sizeof(char));
@@ -536,4 +552,17 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                 " sėkmingai\n");
     }
     return result;
+}
+
+int main_write_bytes_hex(main_params *params, unsigned char *bytes,
+        size_t length) {
+    size_t i;
+
+    for(i = 0; i < length; i += 1) {
+        if(fprintf(params->out, "%x", bytes[i]) < 0) {
+            return EXIT_FAILURE;
+        }
+    }
+
+    return EXIT_SUCCESS;
 }

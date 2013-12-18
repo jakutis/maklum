@@ -15,6 +15,7 @@ typedef struct {
     size_t message_id_length;
     size_t user_id_length;
     size_t key_salt_length;
+    size_t iv_length;
     const char *size_t_format;
 } main_params;
 
@@ -38,7 +39,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
 
 void main_read_text(main_params *params, char *text, size_t text_length);
 
-int main_set_iv(unsigned char *iv, unsigned char *key, char *user_id,
+int main_set_iv(main_params *params, unsigned char *iv, unsigned char *key, char *user_id,
         char *message_id);
 
 int main_aes(const unsigned char *in, unsigned char *out,
@@ -49,5 +50,8 @@ int main_read_integer(main_params *params, size_t *integer);
 int main_read_yesno(main_params *params, const char *positive_response);
 
 int main_error(main_params *params, int type, const char *message);
+
+int main_write_bytes_hex(main_params *params, unsigned char *bytes,
+        size_t length);
 
 #endif
