@@ -59,7 +59,7 @@ void main_read_text(main_params *params, char *text, size_t text_length) {
         }
         text[i] = (char)c;
     }
-    text[i + 1] = 0;
+    text[i] = 0;
 
     OPENSSL_cleanse(&i, sizeof(size_t));
     OPENSSL_cleanse(&c, sizeof(int));
