@@ -155,7 +155,7 @@ void main_digits(size_t n, size_t *d) {
 }
 
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
-        FILE *out, size_t *out_length) {
+        FILE *out) {
     int result = EXIT_SUCCESS;
     size_t plaintext_available;
     int ciphertext_available = 0;
@@ -178,7 +178,6 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         }
         fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
                 ciphertext_available);
-        *out_length += (size_t)ciphertext_available;
     }
     if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext,
                 &ciphertext_available) != 1) {
@@ -190,7 +189,6 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
-        *out_length += (size_t)ciphertext_available;
         fprintf(params->out, "Įrašyta paskutinių šifrogramos baitų: %d\n",
                 ciphertext_available);
     }
@@ -224,8 +222,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
 
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
-    size_t ciphertext_length = 0;
-    fpos_t ciphertext_length_position;
 
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
@@ -294,11 +290,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                         EVP_aes_256_ctr(), NULL, key, iv) != 1) {
                 result = main_error(params, 1, "EVP_EncryptInit_ex");
             }
-            /* TODO do not write sizeof_size_t, ciphertext_length */
-            if(result == EXIT_SUCCESS && fputc(sizeof(size_t),
-                        ciphertext_file) == EOF) {
-                result = main_error(params, 1, "fputc");
-            }
             if(result == EXIT_SUCCESS && fwrite(key_salt, sizeof(char),
                         params->key_salt_length, ciphertext_file) <
                     params->key_salt_length) {
@@ -314,26 +305,9 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     params->message_id_length) {
                 result = main_error(params, 1, "fwrite (message_id)");
             }
-            if(result == EXIT_SUCCESS && fgetpos(ciphertext_file,
-                        &ciphertext_length_position)) {
-                result = main_error(params, 1, "fgetpos");
-            }
-            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length,
-                        sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
-                result = main_error(params, 1, "fwrite (ciphertext_length)");
-            }
             if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
-                        plaintext_file, ciphertext_file,
-                        &ciphertext_length) != EXIT_SUCCESS) {
+                        plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_encrypt_pipe");
-            }
-            if(result == EXIT_SUCCESS && fsetpos(ciphertext_file,
-                        &ciphertext_length_position)) {
-                result = main_error(params, 1, "fsetpos");
-            }
-            if(result == EXIT_SUCCESS && fwrite(&ciphertext_length,
-                        sizeof(ciphertext_length), 1, ciphertext_file) < 1) {
-                result = main_error(params, 1, "fwrite");
             }
         }
     }
@@ -349,8 +323,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     " failo");
         }
     }
-    OPENSSL_cleanse(&ciphertext_length_position, sizeof(fpos_t));
-    OPENSSL_cleanse(&ciphertext_length, sizeof(size_t));
     OPENSSL_cleanse(password, (params->password_length + 1) * sizeof(char));
     OPENSSL_cleanse(key, key_length * sizeof(char));
     OPENSSL_cleanse(iv, 16 * sizeof(char));
@@ -427,7 +399,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
 
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
-    size_t ciphertext_length = 0;
     unsigned char size_t_size = 0;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
@@ -453,15 +424,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
             result = main_error(params, 0, "nepavyko atidaryti tekstogramos"
                     " failo");
         }
-    }
-    if(result == EXIT_SUCCESS) {
-        fread(&size_t_size, 1, 1, ciphertext_file);
-        if(ferror(ciphertext_file)) {
-            result = main_error(params, 1, "fread");
-        }
-    }
-    if(result == EXIT_SUCCESS && size_t_size != sizeof(size_t)) {
-        result = main_error(params, 1, "nepalaikomas šifrogramos failas");
     }
     if(result == EXIT_SUCCESS) {
         fread(key_salt, sizeof(char), params->key_salt_length,
@@ -491,14 +453,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-        fread(&ciphertext_length, sizeof(size_t), 1, ciphertext_file);
-        if(ferror(ciphertext_file)) {
-            result = main_error(params, 1, "nepavyko nuskaityti šifrogramos"
-                    " ilgio");
-        }
-    }
-    if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Šifrogramos ilgis: %zu\n", ciphertext_length);
         fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus"
                 " ilgis yra %zu): ", params->password_length);
         main_read_text(params, password, params->password_length);
@@ -539,7 +493,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     OPENSSL_cleanse(message_id, (params->message_id_length + 1) * sizeof(char));
     OPENSSL_cleanse(user_id, (params->user_id_length + 1) * sizeof(char));
     OPENSSL_cleanse(&size_t_size, sizeof(char));
-    OPENSSL_cleanse(&ciphertext_length, sizeof(size_t));
     EVP_CIPHER_CTX_free(ctx);
     free(password);
     free(iv);

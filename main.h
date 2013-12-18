@@ -22,7 +22,7 @@ void main_digits(size_t n, size_t *d);
 int main_string_to_integer(char *string, size_t *integer);
 
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
-        FILE *out, size_t *out_length);
+        FILE *out);
 
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out);
