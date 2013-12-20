@@ -270,8 +270,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         main_write_size_t(params, params->message_id_length);
         fprintf(params->out, "): ");
         main_read_text(params, message_id, params->message_id_length);
-    }
-    if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
                 " ilgis yra ");
         main_write_size_t(params, params->password_length);
