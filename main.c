@@ -65,11 +65,11 @@ void main_read_text(main_params *params, char *text, size_t text_length) {
     size_t i;
     int c;
 
-	c = 0;
+    c = 0;
     for(i = 0; !isgraph(c); i += 1) {
         c = fgetc(params->in);
-	}
-    text[0] = c;
+    }
+    text[0] = (char)c;
 
     for(i = 1; i < text_length; i += 1) {
         c = fgetc(params->in);
