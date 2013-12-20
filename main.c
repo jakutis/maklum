@@ -16,7 +16,7 @@ int main(int argc, const char **argv) {
     params.in = stdin;
     params.out = stdout;
     params.password_length = 50;
-    params.pbkdf2_iterations = 100;
+    params.pbkdf2_iterations = 16384;
     params.pipe_buffer_size = 100000;
     params.iv_length = 16;
     params.key_salt_length = 32;
