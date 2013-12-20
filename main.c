@@ -65,7 +65,13 @@ void main_read_text(main_params *params, char *text, size_t text_length) {
     size_t i;
     int c;
 
-    for(i = 0; i < text_length; i += 1) {
+	c = 0;
+    for(i = 0; !isgraph(c); i += 1) {
+        c = fgetc(params->in);
+	}
+    text[0] = c;
+
+    for(i = 1; i < text_length; i += 1) {
         c = fgetc(params->in);
         if(!isgraph(c)) {
             break;
