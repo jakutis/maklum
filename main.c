@@ -308,7 +308,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
                         EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length, NULL) != 1) {
                 result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl");
-;
             }
             if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
                         NULL, NULL, key, iv) != 1) {
