@@ -209,7 +209,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         const char *ciphertext_filename) {
     int result = EXIT_SUCCESS;
 
-    unsigned char *iv = malloc(16 * sizeof(char));
+    unsigned char *iv = malloc(params->iv_length * sizeof(char));
     unsigned char *key_salt = malloc(params->key_salt_length * sizeof(char));
     size_t key_length = 32;
     unsigned char *key = malloc(key_length * sizeof(char));
