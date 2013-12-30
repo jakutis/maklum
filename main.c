@@ -287,6 +287,20 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                 main_write_bytes_hex(params, key, key_length);
                 fprintf(params->out, ".\n");
             }
+            /*
+             * 2011 - David McGrew - Galois Counter Mode:
+             *
+             * Another criticism is that security degrades with the length of
+             * messages that are processed. These demerits are due to the
+             * choice of hash function used in GCM, which also bring low
+             * computational cost and low latency.
+             */
+            /*
+             * Since this cryptosystem is designed to for the exchange of
+             * manually typed messages by two persons, it is not expected
+             * that the vulnerability related to message length is of any
+             * concern.
+             */
             if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
                         EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
                 result = main_error(params, 1, "EVP_EncryptInit_ex (mode)");
