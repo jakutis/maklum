@@ -1,7 +1,7 @@
 .PHONY:
 encrypt: main
 	echo
-	echo -e 'bronius\n1\nraktas\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted)
+	echo -e 'raktas\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted)
 
 .PHONY:
 decrypt: main

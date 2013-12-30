@@ -20,8 +20,6 @@ int main(int argc, const char **argv) {
     params.pipe_buffer_size = 100000;
     params.iv_length = 16;
     params.key_salt_length = 32;
-    params.message_id_length = 8;
-    params.user_id_length = 8;
     params.size_t_format = NULL;
 
     if(sizeof(short int) == size_t_bytes) {
@@ -148,26 +146,6 @@ int main_aes(const unsigned char *in, unsigned char *out,
     return EXIT_SUCCESS;
 }
 
-int main_set_iv(main_params *params, unsigned char *iv, unsigned char *key,
-        char *user_id, char *message_id) {
-    int result = EXIT_SUCCESS;
-    unsigned char *nonce;
-
-    nonce = malloc(params->iv_length * sizeof(char));
-    memcpy(nonce, user_id, params->user_id_length);
-    memcpy(nonce + params->user_id_length, message_id,
-            params->message_id_length);
-
-    if(main_aes(nonce, iv, key) != EXIT_SUCCESS) {
-        result = EXIT_FAILURE;
-    }
-
-    OPENSSL_cleanse(nonce, params->iv_length * sizeof(char));
-
-    free(nonce);
-    return result;
-}
-
 void main_digits(size_t n, size_t *d) {
     for(*d = 1; n > 9; *d += 1) {
         n /= 10;
@@ -231,9 +209,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         const char *ciphertext_filename) {
     int result = EXIT_SUCCESS;
 
-    char *message_id = malloc((params->message_id_length + 1) * sizeof(char));
-    char *user_id = malloc((params->user_id_length + 1) * sizeof(char));
-
     unsigned char *iv = malloc(16 * sizeof(char));
     unsigned char *key_salt = malloc(params->key_salt_length * sizeof(char));
     size_t key_length = 32;
@@ -259,17 +234,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Suveskite vartotojo identifikatorių (maksimalus"
-                " ilgis yra ");
-        main_write_size_t(params, params->user_id_length);
-        fprintf(params->out, "): ");
-        main_read_text(params, user_id, params->user_id_length);
-        fprintf(params->out, "Suveskite šio vartotojo vardu atliekamos"
-                " užšifravimo operacijos vienkartinį identifikatorių"
-                " (maksimalus ilgis yra ");
-        main_write_size_t(params, params->message_id_length);
-        fprintf(params->out, "): ");
-        main_read_text(params, message_id, params->message_id_length);
         fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
                 " ilgis yra ");
         main_write_size_t(params, params->password_length);
@@ -279,15 +243,13 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                 " su tokiais parametrais:\n");
         fprintf(params->out, "Tekstogramos failas: %s\n", plaintext_filename);
         fprintf(params->out, "Šifrogramos failas: %s\n", ciphertext_filename);
-        fprintf(params->out, "Vartotojo identifikatorius: %s\n", user_id);
-        fprintf(params->out, "Operacijos identifikatorius: %s\n", message_id);
         fprintf(params->out, "Slaptažodis: %s\n", password);
         fprintf(params->out, "Ar pradėti operaciją (taip/ne)? ");
         if(main_read_yesno(params, "taip")) {
             fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
 
             if(RAND_bytes(key_salt, (int)params->key_salt_length) != 1) {
-                result = main_error(params, 1, "RAND_bytes");
+                result = main_error(params, 1, "RAND_bytes (key_salt)");
             }
             if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
                         (int)strlen(password), key_salt,
@@ -303,13 +265,17 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
              * As with OFB mode, you must make absolutely sure never to reuse
              * a singlekey / nonce combination.
              *
-             * Instead of a random IV (RAND_bytes) we derive IV from user_id
-             * and message_id to rule out IV collision, which is more probable
-             * when more and more encryption operations are done.
+             * In the previous versions of this system, instead of a random IV
+             * (RAND_bytes) we derived IV from user_id and message_id to rule
+             * out IV collision, which is more probable when more and more
+             * encryption operations are done.
+             *
+             * But now, we go back to just generating a random IV. The
+             * probability of collision is probably lower than a probability of
+             * user entering the same user id and message id pair.
              */
-            if(result == EXIT_SUCCESS && main_set_iv(params, iv, key, user_id,
-                        message_id) != EXIT_SUCCESS) {
-                result = main_error(params, 1, "main_set_iv");
+            if(result == EXIT_SUCCESS && RAND_bytes(iv, (int)params->iv_length) != 1) {
+                result = main_error(params, 1, "RAND_bytes (iv)");
             }
             if(result == EXIT_SUCCESS && params->debug) {
                 fprintf(params->out, "Pradedamas užšifravimas, IV=");
@@ -327,15 +293,10 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     params->key_salt_length) {
                 result = main_error(params, 1, "fwrite (key_salt)");
             }
-            if(result == EXIT_SUCCESS && fwrite(user_id, sizeof(char),
-                        params->user_id_length, ciphertext_file) <
-                    params->user_id_length) {
-                result = main_error(params, 1, "fwrite (user_id)");
-            }
-            if(result == EXIT_SUCCESS && fwrite(message_id, sizeof(char),
-                        params->message_id_length, ciphertext_file) <
-                    params->message_id_length) {
-                result = main_error(params, 1, "fwrite (message_id)");
+            if(result == EXIT_SUCCESS && fwrite(iv, sizeof(char),
+                        params->iv_length, ciphertext_file) <
+                    params->iv_length) {
+                result = main_error(params, 1, "fwrite (iv)");
             }
             if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
                         plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
@@ -359,15 +320,11 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     OPENSSL_cleanse(key, key_length * sizeof(char));
     OPENSSL_cleanse(iv, 16 * sizeof(char));
     OPENSSL_cleanse(key_salt, params->key_salt_length * sizeof(char));
-    OPENSSL_cleanse(user_id, (params->user_id_length + 1) * sizeof(char));
-    OPENSSL_cleanse(message_id, (params->message_id_length + 1) * sizeof(char));
     EVP_CIPHER_CTX_free(ctx);
     free(password);
     free(iv);
     free(key);
     free(key_salt);
-    free(user_id);
-    free(message_id);
 
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Užšifravimo operacija baigta vykdyti"
@@ -443,9 +400,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     unsigned char size_t_size = 0;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
-    char *message_id = malloc((params->message_id_length + 1) * sizeof(char));
-    char *user_id = malloc((params->user_id_length + 1) * sizeof(char));
-
     unsigned char *iv = malloc(params->iv_length * sizeof(char));
     unsigned char *key_salt = malloc(params->key_salt_length * sizeof(char));
     size_t key_length = 32;
@@ -474,23 +428,11 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-        fread(user_id, sizeof(char), params->user_id_length,
+        fread(iv, sizeof(char), params->iv_length,
                 ciphertext_file);
         if(ferror(ciphertext_file)) {
             result = main_error(params, 1,
-                    "nepavyko nuskaityti vartotojo identifikatoriaus");
-        } else {
-            user_id[params->user_id_length] = 0;
-        }
-    }
-    if(result == EXIT_SUCCESS) {
-        fread(message_id, sizeof(char), params->message_id_length,
-                ciphertext_file);
-        if(ferror(ciphertext_file)) {
-            result = main_error(params, 1,
-                    "nepavyko nuskaityti operacijos identifikatoriaus");
-        } else {
-            message_id[params->message_id_length] = 0;
+                    "nepavyko nuskaityti inicializacijos vektoriaus");
         }
     }
     if(result == EXIT_SUCCESS) {
@@ -504,10 +446,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                 (int)strlen(password), key_salt, (int)params->key_salt_length,
                 (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
         result = main_error(params, 1, "PKCS5_PBKDF2_HMAC_SHA1");
-    }
-    if(result == EXIT_SUCCESS && main_set_iv(params, iv, key, user_id,
-                message_id) != EXIT_SUCCESS) {
-        result = main_error(params, 1, "main_set_iv");
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "Pradedamas iššifravimas, IV=");
@@ -540,16 +478,12 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     OPENSSL_cleanse(key, key_length * sizeof(char));
     OPENSSL_cleanse(iv, params->iv_length * sizeof(char));
     OPENSSL_cleanse(key_salt, params->key_salt_length * sizeof(char));
-    OPENSSL_cleanse(message_id, (params->message_id_length + 1) * sizeof(char));
-    OPENSSL_cleanse(user_id, (params->user_id_length + 1) * sizeof(char));
     OPENSSL_cleanse(&size_t_size, sizeof(char));
     EVP_CIPHER_CTX_free(ctx);
     free(password);
     free(iv);
     free(key);
     free(key_salt);
-    free(user_id);
-    free(message_id);
 
 
     if(result == EXIT_SUCCESS) {
