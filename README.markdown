@@ -15,7 +15,7 @@ A cryptographic system that was implemented as an exercise for [Cryptographic Sy
 * [x] encryption
 * [x] file transport
 * [x] decryption
-* [ ] authentication
+* [x] authentication
 * [ ] Diffie-Helman key exchange
 * [ ] RSA signature
 * [ ] RSA key exchange

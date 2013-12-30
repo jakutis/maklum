@@ -17,6 +17,7 @@ typedef struct {
     size_t user_id_length;
     size_t key_salt_length;
     size_t iv_length;
+    size_t tag_length;
     const char *size_t_format;
 } main_params;
 

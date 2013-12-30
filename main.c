@@ -13,6 +13,7 @@ int main(int argc, const char **argv) {
     main_params params;
 
     params.debug = 0;
+    params.tag_length = 16;
     params.in = stdin;
     params.out = stdout;
     params.password_length = 50;
@@ -209,12 +210,14 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         const char *ciphertext_filename) {
     int result = EXIT_SUCCESS;
 
+    unsigned char *tag = malloc(params->tag_length * sizeof(char));
     unsigned char *iv = malloc(params->iv_length * sizeof(char));
     unsigned char *key_salt = malloc(params->key_salt_length * sizeof(char));
     size_t key_length = 32;
     unsigned char *key = malloc(key_length * sizeof(char));
     char *password = malloc((params->password_length + 1) * sizeof(char));
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    fpos_t *tag_pos = malloc(sizeof(fpos_t));
 
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
@@ -285,8 +288,17 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                 fprintf(params->out, ".\n");
             }
             if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
-                        EVP_aes_256_ctr(), NULL, key, iv) != 1) {
-                result = main_error(params, 1, "EVP_EncryptInit_ex");
+                        EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
+                result = main_error(params, 1, "EVP_EncryptInit_ex (mode)");
+            }
+            if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
+                        EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length, NULL) != 1) {
+                result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl");
+;
+            }
+            if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
+                        NULL, NULL, key, iv) != 1) {
+                result = main_error(params, 1, "EVP_EncryptInit_ex (key, iv)");
             }
             if(result == EXIT_SUCCESS && fwrite(key_salt, sizeof(char),
                         params->key_salt_length, ciphertext_file) <
@@ -298,9 +310,34 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     params->iv_length) {
                 result = main_error(params, 1, "fwrite (iv)");
             }
+            if(result == EXIT_SUCCESS && fgetpos(ciphertext_file, tag_pos)) {
+                result = main_error(params, 1, "fgetpos");
+            }
+            if(result == EXIT_SUCCESS && fwrite(tag, sizeof(char),
+                        params->tag_length, ciphertext_file) <
+                    params->tag_length) {
+                result = main_error(params, 1, "fwrite (spacing tag)");
+            }
             if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
                         plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_encrypt_pipe");
+            }
+            if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG,
+                        (int)params->tag_length, tag) != 1) {
+                result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl");
+            }
+            if(result == EXIT_SUCCESS && fsetpos(ciphertext_file, tag_pos)) {
+                result = main_error(params, 1, "fsetpos");
+            }
+            if(result == EXIT_SUCCESS && fwrite(tag, sizeof(char),
+                        params->tag_length, ciphertext_file) <
+                    params->tag_length) {
+                result = main_error(params, 1, "fwrite (actual tag)");
+            }
+            if(result == EXIT_SUCCESS && params->debug) {
+                fprintf(params->out, "Baigtas užšifravimas, TAG=");
+                main_write_bytes_hex(params, tag, params->tag_length);
+                fprintf(params->out, ".\n");
             }
         }
     }
@@ -316,11 +353,15 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     " failo");
         }
     }
+    OPENSSL_cleanse(tag_pos, sizeof(fpos_t));
+    OPENSSL_cleanse(tag, params->tag_length * sizeof(char));
     OPENSSL_cleanse(password, (params->password_length + 1) * sizeof(char));
     OPENSSL_cleanse(key, key_length * sizeof(char));
     OPENSSL_cleanse(iv, 16 * sizeof(char));
     OPENSSL_cleanse(key_salt, params->key_salt_length * sizeof(char));
     EVP_CIPHER_CTX_free(ctx);
+    free(tag_pos);
+    free(tag);
     free(password);
     free(iv);
     free(key);
@@ -400,6 +441,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     unsigned char size_t_size = 0;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
+    unsigned char *tag = malloc(params->tag_length * sizeof(char));
     unsigned char *iv = malloc(params->iv_length * sizeof(char));
     unsigned char *key_salt = malloc(params->key_salt_length * sizeof(char));
     size_t key_length = 32;
@@ -428,11 +470,16 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-        fread(iv, sizeof(char), params->iv_length,
-                ciphertext_file);
+        fread(iv, sizeof(char), params->iv_length, ciphertext_file);
         if(ferror(ciphertext_file)) {
             result = main_error(params, 1,
                     "nepavyko nuskaityti inicializacijos vektoriaus");
+        }
+    }
+    if(result == EXIT_SUCCESS) {
+        fread(tag, sizeof(char), params->tag_length, ciphertext_file);
+        if(ferror(ciphertext_file)) {
+            result = main_error(params, 1, "fread (tag)");
         }
     }
     if(result == EXIT_SUCCESS) {
@@ -450,13 +497,27 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "Pradedamas iššifravimas, IV=");
         main_write_bytes_hex(params, iv, params->iv_length);
+        fprintf(params->out, ", TAG=");
+        main_write_bytes_hex(params, tag, params->tag_length);
         fprintf(params->out, ", KEY=");
         main_write_bytes_hex(params, key, key_length);
         fprintf(params->out, ".\n");
     }
-    if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(),
+    if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(),
+                NULL, NULL, NULL) != 1) {
+        result = main_error(params, 1, "EVP_EncryptInit_ex (mode)");
+    }
+    if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG,
+                (int)params->tag_length, tag) != 1) {
+        result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl (TAG)");
+    }
+    if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
+                EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length, NULL) != 1) {
+        result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl (IVLEN)");
+    }
+    if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, NULL,
                 NULL, key, iv) != 1) {
-        result = main_error(params, 1, "EVP_EncryptInit_ex");
+        result = main_error(params, 1, "EVP_EncryptInit_ex (key, iv)");
     }
     if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx,
                 ciphertext_file, plaintext_file) != EXIT_SUCCESS) {
@@ -474,12 +535,14 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                     " failo");
         }
     }
+    OPENSSL_cleanse(tag, params->tag_length * sizeof(char));
     OPENSSL_cleanse(password, (params->password_length + 1) * sizeof(char));
     OPENSSL_cleanse(key, key_length * sizeof(char));
     OPENSSL_cleanse(iv, params->iv_length * sizeof(char));
     OPENSSL_cleanse(key_salt, params->key_salt_length * sizeof(char));
     OPENSSL_cleanse(&size_t_size, sizeof(char));
     EVP_CIPHER_CTX_free(ctx);
+    free(tag);
     free(password);
     free(iv);
     free(key);
