@@ -296,7 +296,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
              * computational cost and low latency.
              */
             /*
-             * Since this cryptosystem is designed to for the exchange of
+             * Since this cryptosystem is designed for the exchange of
              * manually typed messages by two persons, it is not expected
              * that the vulnerability related to message length is of any
              * concern.
