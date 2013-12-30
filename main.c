@@ -284,9 +284,9 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                 main_write_bytes_hex(params, key, key_length);
                 fprintf(params->out, ".\n");
             }
-            if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
-                        EVP_aes_256_ctr(), NULL, key, iv) != 1) {
-                result = main_error(params, 1, "EVP_EncryptInit_ex");
+            if(result == EXIT_SUCCESS && EVP_EncryptInit(ctx,
+                        EVP_aes_256_ctr(), key, iv) != 1) {
+                result = main_error(params, 1, "EVP_EncryptInit");
             }
             if(result == EXIT_SUCCESS && fwrite(key_salt, sizeof(char),
                         params->key_salt_length, ciphertext_file) <
@@ -454,9 +454,9 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         main_write_bytes_hex(params, key, key_length);
         fprintf(params->out, ".\n");
     }
-    if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(),
-                NULL, key, iv) != 1) {
-        result = main_error(params, 1, "EVP_EncryptInit_ex");
+    if(result == EXIT_SUCCESS && EVP_DecryptInit(ctx, EVP_aes_256_ctr(),
+                key, iv) != 1) {
+        result = main_error(params, 1, "EVP_DecryptInit");
     }
     if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx,
                 ciphertext_file, plaintext_file) != EXIT_SUCCESS) {
