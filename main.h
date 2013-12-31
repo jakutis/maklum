@@ -19,7 +19,10 @@ typedef struct {
     size_t iv_length;
     size_t tag_length;
     const char *size_t_format;
+    size_t dh_prime_length;
 } main_params;
+
+int main_a(main_params *params);
 
 void main_digits(size_t n, size_t *d);
 

@@ -5,6 +5,7 @@
 #include "openssl/evp.h"
 #include "openssl/aes.h"
 #include "openssl/rand.h"
+#include "openssl/dh.h"
 
 #include "main.h"
 
@@ -12,7 +13,7 @@ int main(int argc, const char **argv) {
     size_t size_t_bytes = sizeof(size_t);
     main_params params;
 
-    params.debug = 0;
+    params.debug = 1;
     params.tag_length = 16;
     params.in = stdin;
     params.out = stdout;
@@ -22,6 +23,7 @@ int main(int argc, const char **argv) {
     params.iv_length = 16;
     params.key_salt_length = 32;
     params.size_t_format = NULL;
+    params.dh_prime_length = 2048;
 
     if(sizeof(short int) == size_t_bytes) {
         params.size_t_format = "%hu";
@@ -54,10 +56,40 @@ int main(int argc, const char **argv) {
                     "nepateiktas tekstogramos failo vardas");
         }
         return main_decrypt(&params, argv[2], argv[3]);
+    } else if(strcmp(argv[1], "sukurtiparametrus") == 0) {
+        return main_a(&params);
     } else {
         return main_error(&params, 0, "neatpažintas operacijos pavadinimas"
-                " (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\")");
+                " (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\", \"sukurtiparametrus\")");
     }
+}
+
+int main_a(main_params *params) {
+    int result = EXIT_SUCCESS;
+
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *dh_params = NULL;
+
+    if(result == EXIT_SUCCESS && (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL)) == NULL) {
+        result = main_error(params, 0, "EVP_PKEY_CTX_new_id");
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_paramgen_init(ctx) != 1) {
+        result = main_error(params, 0, "EVP_PKEY_paramgen_init");
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_CTX_set_dh_paramgen_prime_len(ctx, (int)params->dh_prime_length) != 1) {
+        result = main_error(params, 0, "EVP_PKEY_CTX_set_dh_paramgen_prime_len");
+    }
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "Pradedamas vykdyti parametrų generavimas.\n");
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_paramgen(ctx, &dh_params)) {
+        result = main_error(params, 0, "EVP_PKEY_paramgen");
+    }
+
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(dh_params);
+
+    return result;
 }
 
 void main_read_text(main_params *params, char *text, size_t text_length) {
