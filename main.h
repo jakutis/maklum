@@ -36,6 +36,10 @@ typedef struct {
 
 int main_a(main_params *params);
 
+int main_fill_dh_params(main_params *params, EVP_PKEY *dh_params);
+
+int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params, EVP_PKEY **key);
+
 void main_digits(size_t n, size_t *d);
 
 int main_write_size_t(main_params *params, size_t size);

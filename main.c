@@ -104,8 +104,64 @@ int main(int argc, const char **argv) {
         return main_a(&params);
     } else {
         return main_error(&params, 0, "neatpažintas operacijos pavadinimas"
-                " (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\", \"sukurtiparametrus\")");
+                " (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\","
+                " \"sukurtiparametrus\")");
     }
+}
+
+int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
+        EVP_PKEY **key) {
+    int result = EXIT_SUCCESS;
+    EVP_PKEY_CTX *ctx = NULL;
+
+    if(result == EXIT_SUCCESS &&
+            (ctx = EVP_PKEY_CTX_new(dh_params, NULL)) == NULL) {
+        result = main_error(params, 0, "main_b: EVP_PKEY_CTX_new");
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_keygen_init(ctx) != 1) {
+        result = main_error(params, 0, "main_b: EVP_PKEY_keygen_init");
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_keygen(ctx, key) != 1) {
+        result = main_error(params, 0, "main_b: EVP_PKEY_keygen");
+    }
+
+    EVP_PKEY_CTX_free(ctx);
+    return result;
+}
+
+
+int main_fill_dh_params(main_params *params, EVP_PKEY *dh_params) {
+    int result = EXIT_SUCCESS;
+    DH *dh = NULL;
+
+    if(result == EXIT_SUCCESS && (dh = DH_new()) == NULL) {
+        result = main_error(params, 0, "main_fill_dh_params: DH_new");
+    }
+    if(result == EXIT_SUCCESS &&
+            (dh->p = BN_bin2bn(params->dh_prime,
+                               (int)(params->dh_prime_length * sizeof(char)),
+                               NULL)) == NULL) {
+        result = main_error(params, 0,
+                "main_fill_dh_params: BN_bin2bn (prime)");
+    }
+    if(result == EXIT_SUCCESS &&
+            (dh->g = BN_bin2bn(params->dh_generator,
+                               (int)(params->dh_generator_length *
+                                   sizeof(char)),
+                               NULL)) == NULL) {
+        result = main_error(params, 0,
+                "main_fill_dh_params: BN_bin2bn (generator)");
+    }
+    if(result == EXIT_SUCCESS && (dh_params = EVP_PKEY_new()) == NULL) {
+        result = main_error(params, 0, "main_fill_dh_params: EVP_PKEY_new");
+    }
+		if(result == EXIT_SUCCESS && EVP_PKEY_assign_DH(dh_params, dh) != 1) {
+        result = main_error(params, 0,
+                "main_fill_dh_params: EVP_PKEY_assign_DH");
+    }
+    DH_free(dh);
+
+    return result;
 }
 
 int main_a(main_params *params) {
@@ -114,14 +170,18 @@ int main_a(main_params *params) {
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *dh_params = NULL;
 
-    if(result == EXIT_SUCCESS && (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL)) == NULL) {
+    if(result == EXIT_SUCCESS &&
+            (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL)) == NULL) {
         result = main_error(params, 0, "EVP_PKEY_CTX_new_id");
     }
     if(result == EXIT_SUCCESS && EVP_PKEY_paramgen_init(ctx) != 1) {
         result = main_error(params, 0, "EVP_PKEY_paramgen_init");
     }
-    if(result == EXIT_SUCCESS && EVP_PKEY_CTX_set_dh_paramgen_prime_len(ctx, (int)params->dh_prime_length) != 1) {
-        result = main_error(params, 0, "EVP_PKEY_CTX_set_dh_paramgen_prime_len");
+    if(result == EXIT_SUCCESS &&
+            EVP_PKEY_CTX_set_dh_paramgen_prime_len(ctx,
+                (int)params->dh_prime_length) != 1) {
+        result = main_error(params, 0,
+                "EVP_PKEY_CTX_set_dh_paramgen_prime_len");
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "Pradedamas vykdyti parametrų generavimas.\n");
@@ -353,7 +413,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
              * probability of collision is probably lower than a probability of
              * user entering the same user id and message id pair.
              */
-            if(result == EXIT_SUCCESS && RAND_bytes(iv, (int)params->iv_length) != 1) {
+            if(result == EXIT_SUCCESS && RAND_bytes(iv,
+                        (int)params->iv_length) != 1) {
                 result = main_error(params, 1, "RAND_bytes (iv)");
             }
             if(result == EXIT_SUCCESS && params->debug) {
@@ -382,7 +443,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                 result = main_error(params, 1, "EVP_EncryptInit_ex (mode)");
             }
             if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
-                        EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length, NULL) != 1) {
+                        EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length,
+                        NULL) != 1) {
                 result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl");
 ;
             }
@@ -412,7 +474,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                         plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
                 result = main_error(params, 1, "main_encrypt_pipe");
             }
-            if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG,
+            if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
+                        EVP_CTRL_GCM_GET_TAG,
                         (int)params->tag_length, tag) != 1) {
                 result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl");
             }
