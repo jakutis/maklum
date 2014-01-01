@@ -2,6 +2,15 @@
 
 #define MAIN
 
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "openssl/evp.h"
+#include "openssl/aes.h"
+#include "openssl/rand.h"
+#include "openssl/dh.h"
+
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t) - 1)
 #endif
@@ -57,3 +66,4 @@ int main_write_bytes_hex(main_params *params, unsigned char *bytes,
         size_t length);
 
 #endif
+

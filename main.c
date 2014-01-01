@@ -1,12 +1,3 @@
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
-
-#include "openssl/evp.h"
-#include "openssl/aes.h"
-#include "openssl/rand.h"
-#include "openssl/dh.h"
-
 #include "main.h"
 
 int main(int argc, const char **argv) {
@@ -614,3 +605,4 @@ int main_write_bytes_hex(main_params *params, unsigned char *bytes,
 
     return EXIT_SUCCESS;
 }
+
