@@ -11,13 +11,10 @@
 #include "openssl/rand.h"
 #include "openssl/dh.h"
 
-#ifndef SIZE_MAX
-#define SIZE_MAX ((size_t) - 1)
-#endif
-
 typedef struct {
     FILE *in;
     FILE *out;
+    size_t size_max;
     size_t debug;
     size_t password_length;
     size_t pbkdf2_iterations;

@@ -68,6 +68,7 @@ int main(int argc, const char **argv) {
     params.dh_generator_length = 2048;
     params.dh_generator = g;
     params.dh_prime = p;
+    params.size_max = (size_t) - 1;
 
     if(sizeof (short int) == size_t_bytes) {
         params.size_t_format = "%hu";
@@ -292,7 +293,7 @@ int main_read_integer(main_params *params, size_t *integer) {
     char *string;
     size_t n;
 
-    main_digits(SIZE_MAX, &n);
+    main_digits(params->size_max, &n);
     string = malloc(n + 1);
     main_read_text(params, string, n);
     result = main_string_to_integer(params, string, integer);
