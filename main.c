@@ -651,6 +651,42 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     return result;
 }
 
+int main_read_key_type(main_params *params, main_enum *key_type) {
+    int result = EXIT_SUCCESS;
+    size_t i;
+
+    while(1) {
+        fprintf(params->out, "Suveskite rakto tipą - ");
+        for(i = 0; i < key_type->len; i += 1) {
+            if(i) {
+                fprintf(params->out, " arba ");
+            }
+            if(fputs(key_type->all[i], params->out) == EOF) {
+                result = main_error(params, 1, "main_read_key: fputs");
+                break;
+            }
+        }
+        if(result == EXIT_SUCCESS) {
+            fprintf(params->out, ": ");
+            result = main_read_enum(params, key_type);
+            if(result != EXIT_SUCCESS) {
+                main_error(params, 1, "main_read_key: main_read_enum");
+            }
+        }
+        if(result != EXIT_SUCCESS) {
+            break;
+        }
+        if(!key_type->current) {
+            fprintf(params->out, "Neatpažintas rakto tipas. Bandykite iš"
+                    " naujo\n");
+            continue;
+        }
+        break;
+    }
+
+    return result;
+}
+
 int main_decrypt(main_params *params, const char *ciphertext_filename,
         const char *plaintext_filename) {
     int result = EXIT_SUCCESS;
