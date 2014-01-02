@@ -289,8 +289,8 @@ int main_read_enum(main_params *params, const char **names) {
 }
 
 int main_error(main_params *params, int type, const char *message) {
-    fprintf(params->out, "%s klaida: %s.\n", type == 0 ? "Vartotojo" :
-            "Sisteminė", message);
+    fprintf(params->out, "%s klaida: %s.\n", type ? "Sisteminė" : "Vartotojo",
+            message);
     return EXIT_FAILURE;
 }
 
