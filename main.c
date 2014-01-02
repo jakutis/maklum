@@ -411,9 +411,14 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     char *password = malloc(params->password_length + 1);
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     fpos_t tag_pos;
+    size_t kt_password = 0, kt_dh = 1;
+    const char *key_types[] = {"password", "dh"};
+    main_enum key_type;
 
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
+
+    main_enum_init(&key_type, key_types, 2);
 
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
@@ -430,20 +435,20 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
-                " ilgis yra ");
-        main_write_size_t(params, params->password_length);
-        fprintf(params->out, "): ");
-        main_read_text(params, password, params->password_length);
-        fprintf(params->out, "Ačiū! Sistema pasiruošusi šifravimo operacijai"
-                " su tokiais parametrais:\n");
-        fprintf(params->out, "Tekstogramos failas: %s\n", plaintext_filename);
-        fprintf(params->out, "Šifrogramos failas: %s\n", ciphertext_filename);
-        fprintf(params->out, "Slaptažodis: %s\n", password);
-        fprintf(params->out, "Ar pradėti operaciją (taip/ne)? ");
-        if(main_read_yesno(params, "taip")) {
-            fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
-
+        result = main_read_key_type(params, &key_type);
+    }
+    if(result == EXIT_SUCCESS) {
+        if(key_type.current_i == kt_dh) {
+            result = main_error(params, 1, "main_encrypt: funkcija dar"
+                    " neįgyvendinta");
+        }
+        if(key_type.current_i == kt_password) {
+            fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
+                    " ilgis yra ");
+            main_write_size_t(params, params->password_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, password, params->password_length);
+            fprintf(params->out, "Suvestas slaptažodis: %s\n", password);
             if(RAND_bytes(key_salt, (int)params->key_salt_length) != 1) {
                 result = main_error(params, 1,
                         "main_encrypt: RAND_bytes (key_salt)");
@@ -456,6 +461,18 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                 result = main_error(params, 1,
                         "main_encrypt: PKCS4_PBKDF2_HMAC_SHA1");
             }
+        }
+    }
+    if(result == EXIT_SUCCESS) {
+
+        fprintf(params->out, "Ačiū! Sistema pasiruošusi šifravimo operacijai"
+                " su tokiais parametrais:\n");
+        fprintf(params->out, "Tekstogramos failas: %s\n", plaintext_filename);
+        fprintf(params->out, "Šifrogramos failas: %s\n", ciphertext_filename);
+        fprintf(params->out, "Ar pradėti operaciją (taip/ne)? ");
+        if(main_read_yesno(params, "taip")) {
+            fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
+
             /*
              * 2010 - Niels Ferguson, Bruce Schneier, Tadayoshi Kohno -
              * Cryptography Engineering - Design Principles and Practical
@@ -701,6 +718,11 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     size_t key_length = 32;
     unsigned char *key = malloc(key_length);
     char *password = malloc(params->password_length + 1);
+    size_t kt_password = 0, kt_dh = 1;
+    const char *key_types[] = {"password", "dh"};
+    main_enum key_type;
+
+    main_enum_init(&key_type, key_types, 2);
 
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "rb");
@@ -717,10 +739,34 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-        fread(key_salt, 1, params->key_salt_length, ciphertext_file);
-        if(ferror(ciphertext_file)) {
+        result = main_read_key_type(params, &key_type);
+    }
+    if(key_type.current_i == kt_password) {
+        if(result == EXIT_SUCCESS) {
+            fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus"
+                    " ilgis yra ");
+            main_write_size_t(params, params->password_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, password, params->password_length);
+        }
+        if(result == EXIT_SUCCESS) {
+            fread(key_salt, 1, params->key_salt_length, ciphertext_file);
+            if(ferror(ciphertext_file)) {
+                result = main_error(params, 1,
+                        "main_read_key: nepavyko nuskaityti salt duomenų");
+            }
+        }
+        if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
+                    (int)strlen(password), key_salt, (int)params->key_salt_length,
+                    (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
             result = main_error(params, 1,
-                    "main_decrypt: nepavyko nuskaityti salt duomenų");
+                    "main_read_key: PKCS5_PBKDF2_HMAC_SHA1");
+        }
+    }
+    if(key_type.current_i == kt_dh) {
+        if(result == EXIT_SUCCESS) {
+            result = main_error(params, 1, "main_read_key: funkcija dar"
+                    " neįgyvendinta");
         }
     }
     if(result == EXIT_SUCCESS) {
@@ -736,19 +782,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         if(ferror(ciphertext_file)) {
             result = main_error(params, 1, "main_decrypt: fread (tag)");
         }
-    }
-    if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus"
-                " ilgis yra ");
-        main_write_size_t(params, params->password_length);
-        fprintf(params->out, "): ");
-        main_read_text(params, password, params->password_length);
-    }
-    if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
-                (int)strlen(password), key_salt, (int)params->key_salt_length,
-                (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
-        result = main_error(params, 1,
-                "main_decrypt: PKCS5_PBKDF2_HMAC_SHA1");
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "Pradedamas iššifravimas, IV=");
@@ -800,13 +833,13 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     OPENSSL_cleanse(key, key_length);
     OPENSSL_cleanse(iv, params->iv_length);
     OPENSSL_cleanse(key_salt, params->key_salt_length);
+    OPENSSL_cleanse(&key_type, sizeof key_type);
     EVP_CIPHER_CTX_free(ctx);
     free(tag);
     free(password);
     free(iv);
     free(key);
     free(key_salt);
-
 
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Iššifravimo operacija baigta vykdyti"
