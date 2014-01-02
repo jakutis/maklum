@@ -34,6 +34,10 @@ typedef struct {
     const unsigned char* dh_prime;
 } main_params;
 
+size_t main_max(size_t a, size_t b);
+
+int main_read_enum(main_params *params, const char **names);
+
 int main_a(main_params *params);
 
 int main_fill_dh_params(main_params *params, EVP_PKEY *dh_params);

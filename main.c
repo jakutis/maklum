@@ -242,6 +242,38 @@ int main_read_yesno(main_params *params, const char *positive_response) {
     return result;
 }
 
+size_t main_max(size_t a, size_t b) {
+    return a > b ? a : b;
+}
+
+int main_read_enum(main_params *params, const char **names) {
+    int response_index;
+    char *response;
+    size_t n;
+    size_t i;
+
+    n = 0;
+    for(i = 0; names[i]; i += 1) {
+        n = main_max(n, strlen(names[i]));
+    }
+    response = malloc(n + 1);
+    response_index = -1;
+
+    main_read_text(params, response, n);
+    for(i = 0; names[i]; i += 1) {
+        if(strcmp(names[i], response)) {
+            response_index = (int)i;
+        }
+    }
+
+    OPENSSL_cleanse(response, n + 1);
+    OPENSSL_cleanse(&n, sizeof n);
+
+    free(response);
+
+    return response_index;
+}
+
 int main_error(main_params *params, int type, const char *message) {
     fprintf(params->out, "%s klaida: %s.\n", type == 0 ? "Vartotojo" :
             "Sisteminė", message);
