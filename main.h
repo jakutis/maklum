@@ -69,7 +69,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
 int main_encrypt(main_params *params, const char *plaintext_filename,
         const char* encrypted_filename);
 
-void main_read_text(main_params *params, char *text, size_t text_length);
+int main_read_text(main_params *params, char *text, size_t text_length);
 
 int main_aes(const unsigned char *in, unsigned char *out,
         const unsigned char *key);
