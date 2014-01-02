@@ -276,32 +276,28 @@ size_t main_max(size_t a, size_t b) {
     return a > b ? a : b;
 }
 
-int main_read_enum(main_params *params, const char **names) {
-    int response_index;
+int main_read_enum(main_params *params, main_enum *a) {
+    int result = EXIT_SUCCESS;
     char *response;
-    size_t n;
     size_t i;
 
-    n = 0;
-    for(i = 0; names[i]; i += 1) {
-        n = main_max(n, strlen(names[i]));
-    }
-    response = malloc(n + 1);
-    response_index = -1;
+    response = malloc(a->max + 1);
 
-    main_read_text(params, response, n);
-    for(i = 0; names[i]; i += 1) {
-        if(strcmp(names[i], response)) {
-            response_index = (int)i;
+    a->current = NULL;
+    if((result = main_read_text(params, response, a->max)) == EXIT_SUCCESS) {
+        for(i = 0; i < a->len; i += 1) {
+            if(!strcmp(a->all[i], response)) {
+                a->current = a->all[i];
+                a->current_i = i;
+            }
         }
     }
 
-    OPENSSL_cleanse(response, n + 1);
-    OPENSSL_cleanse(&n, sizeof n);
-
+    OPENSSL_cleanse(response, a->max + 1);
+    OPENSSL_cleanse(&i, sizeof i);
     free(response);
 
-    return response_index;
+    return result;
 }
 
 int main_error(main_params *params, int type, const char *message) {
