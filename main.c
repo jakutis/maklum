@@ -78,34 +78,34 @@ int main(int argc, const char **argv) {
     }
 
     if(argc < 2) {
-        return main_error(&params, 0, "nepateiktas operacijos pavadinimas");
+        return main_error(&params, 0, "main: nepateiktas operacijos pavadinimas");
     }
     if(strcmp(argv[1], "uzsifruoti") == 0) {
         if(argc == 2) {
             return main_error(&params, 0,
-                    "nepateiktas tekstogramos failo vardas");
+                    "main: nepateiktas tekstogramos failo vardas");
         }
         if(argc == 3) {
             return main_error(&params, 0,
-                    "nepateiktas šifrogramos failo vardas");
+                    "main: nepateiktas šifrogramos failo vardas");
         }
         return main_encrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "issifruoti") == 0) {
         if(argc == 2) {
             return main_error(&params, 0,
-                    "nepateiktas šifrogramos failo vardas");
+                    "main: nepateiktas šifrogramos failo vardas");
         }
         if(argc == 3) {
             return main_error(&params, 0,
-                    "nepateiktas tekstogramos failo vardas");
+                    "main: nepateiktas tekstogramos failo vardas");
         }
         return main_decrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "sukurtiparametrus") == 0) {
         return main_a(&params);
     } else {
-        return main_error(&params, 0, "neatpažintas operacijos pavadinimas"
-                " (turi būti vienas iš: \"uzsifruoti\", \"issifruoti\","
-                " \"sukurtiparametrus\")");
+        return main_error(&params, 0, "main: neatpažintas operacijos"
+                " pavadinimas (turi būti vienas iš: \"uzsifruoti\","
+                " \"issifruoti\", \"sukurtiparametrus\")");
     }
 }
 
@@ -116,13 +116,16 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
 
     if(result == EXIT_SUCCESS &&
             (ctx = EVP_PKEY_CTX_new(dh_params, NULL)) == NULL) {
-        result = main_error(params, 0, "main_b: EVP_PKEY_CTX_new");
+        result = main_error(params, 0,
+                "main_generate_dh_key: EVP_PKEY_CTX_new");
     }
     if(result == EXIT_SUCCESS && EVP_PKEY_keygen_init(ctx) != 1) {
-        result = main_error(params, 0, "main_b: EVP_PKEY_keygen_init");
+        result = main_error(params, 0,
+                "main_generate_dh_key: EVP_PKEY_keygen_init");
     }
     if(result == EXIT_SUCCESS && EVP_PKEY_keygen(ctx, key) != 1) {
-        result = main_error(params, 0, "main_b: EVP_PKEY_keygen");
+        result = main_error(params, 0,
+                "main_generate_dh_key: EVP_PKEY_keygen");
     }
 
     EVP_PKEY_CTX_free(ctx);
@@ -135,7 +138,7 @@ int main_fill_dh_params(main_params *params, EVP_PKEY *dh_params) {
     DH *dh = NULL;
 
     if(result == EXIT_SUCCESS && (dh = DH_new()) == NULL) {
-        result = main_error(params, 0, "main_fill_dh_params: DH_new");
+        result = main_error(params, 0,"main_fill_dh_params: DH_new");
     }
     if(result == EXIT_SUCCESS &&
             (dh->p = BN_bin2bn(params->dh_prime,
@@ -172,22 +175,22 @@ int main_a(main_params *params) {
 
     if(result == EXIT_SUCCESS &&
             (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL)) == NULL) {
-        result = main_error(params, 0, "EVP_PKEY_CTX_new_id");
+        result = main_error(params, 0, "main_a: EVP_PKEY_CTX_new_id");
     }
     if(result == EXIT_SUCCESS && EVP_PKEY_paramgen_init(ctx) != 1) {
-        result = main_error(params, 0, "EVP_PKEY_paramgen_init");
+        result = main_error(params, 0, "main_a: EVP_PKEY_paramgen_init");
     }
     if(result == EXIT_SUCCESS &&
             EVP_PKEY_CTX_set_dh_paramgen_prime_len(ctx,
                 (int)params->dh_prime_length) != 1) {
         result = main_error(params, 0,
-                "EVP_PKEY_CTX_set_dh_paramgen_prime_len");
+                "main_a: EVP_PKEY_CTX_set_dh_paramgen_prime_len");
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "Pradedamas vykdyti parametrų generavimas.\n");
     }
     if(result == EXIT_SUCCESS && EVP_PKEY_paramgen(ctx, &dh_params)) {
-        result = main_error(params, 0, "EVP_PKEY_paramgen");
+        result = main_error(params, 0, "main_a: EVP_PKEY_paramgen");
     }
 
     EVP_PKEY_CTX_free(ctx);
@@ -361,15 +364,15 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
         if(plaintext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti tekstogramos"
-                    " failo");
+            result = main_error(params, 0, "main_encrypt: nepavyko atidaryti"
+                    " tekstogramos failo");
         }
     }
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "wb");
         if(ciphertext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti šifrogramos"
-                    " failo");
+            result = main_error(params, 0, "main_encrypt: nepavyko atidaryti"
+                    " šifrogramos failo");
         }
     }
     if(result == EXIT_SUCCESS) {
@@ -388,14 +391,16 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
 
             if(RAND_bytes(key_salt, (int)params->key_salt_length) != 1) {
-                result = main_error(params, 1, "RAND_bytes (key_salt)");
+                result = main_error(params, 1,
+                        "main_encrypt: RAND_bytes (key_salt)");
             }
             if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
                         (int)strlen(password), key_salt,
                         (int)params->key_salt_length,
                         (int)params->pbkdf2_iterations,
                         (int)key_length, key) != 1) {
-                result = main_error(params, 1, "PKCS5_PBKDF2_HMAC_SHA1");
+                result = main_error(params, 1,
+                        "main_encrypt: PKCS4_PBKDF2_HMAC_SHA1");
             }
             /*
              * 2010 - Niels Ferguson, Bruce Schneier, Tadayoshi Kohno -
@@ -415,7 +420,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
              */
             if(result == EXIT_SUCCESS && RAND_bytes(iv,
                         (int)params->iv_length) != 1) {
-                result = main_error(params, 1, "RAND_bytes (iv)");
+                result = main_error(params, 1, "main_encrypt: RAND_bytes (iv)");
             }
             if(result == EXIT_SUCCESS && params->debug) {
                 fprintf(params->out, "Pradedamas užšifravimas, IV=");
@@ -440,52 +445,63 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
              */
             if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
                         EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
-                result = main_error(params, 1, "EVP_EncryptInit_ex (mode)");
+                result = main_error(params, 1,
+                        "main_encrypt: EVP_EncryptInit_ex (mode)");
             }
             if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
                         EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length,
                         NULL) != 1) {
-                result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl");
+                result = main_error(params, 1,
+                        "main_encrypt: EVP_CIPHER_CTX_ctrl");
 ;
             }
             if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
                         NULL, NULL, key, iv) != 1) {
-                result = main_error(params, 1, "EVP_EncryptInit_ex (key, iv)");
+                result = main_error(params, 1,
+                        "main_encrypt: EVP_EncryptInit_ex (key, iv)");
             }
             if(result == EXIT_SUCCESS && fwrite(key_salt, sizeof(char),
                         params->key_salt_length, ciphertext_file) <
                     params->key_salt_length) {
-                result = main_error(params, 1, "fwrite (key_salt)");
+                result = main_error(params, 1,
+                        "main_encrypt: fwrite (key_salt)");
             }
             if(result == EXIT_SUCCESS && fwrite(iv, sizeof(char),
                         params->iv_length, ciphertext_file) <
                     params->iv_length) {
-                result = main_error(params, 1, "fwrite (iv)");
+                result = main_error(params, 1,
+                        "main_encrypt: fwrite (iv)");
             }
             if(result == EXIT_SUCCESS && fgetpos(ciphertext_file, tag_pos)) {
-                result = main_error(params, 1, "fgetpos");
+                result = main_error(params, 1,
+                        "main_encrypt: fgetpos");
             }
             if(result == EXIT_SUCCESS && fwrite(tag, sizeof(char),
                         params->tag_length, ciphertext_file) <
                     params->tag_length) {
-                result = main_error(params, 1, "fwrite (spacing tag)");
+                result = main_error(params, 1,
+                        "main_encrypt: fwrite (spacing tag)");
             }
             if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
                         plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
-                result = main_error(params, 1, "main_encrypt_pipe");
+                result = main_error(params, 1,
+                        "main_encrypt: main_encrypt_pipe");
             }
             if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
                         EVP_CTRL_GCM_GET_TAG,
                         (int)params->tag_length, tag) != 1) {
-                result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl");
+                result = main_error(params, 1,
+                        "main_encrypt: EVP_CIPHER_CTX_ctrl");
             }
             if(result == EXIT_SUCCESS && fsetpos(ciphertext_file, tag_pos)) {
-                result = main_error(params, 1, "fsetpos");
+                result = main_error(params, 1,
+                        "main_encrypt: fsetpos");
             }
             if(result == EXIT_SUCCESS && fwrite(tag, sizeof(char),
                         params->tag_length, ciphertext_file) <
                     params->tag_length) {
-                result = main_error(params, 1, "fwrite (actual tag)");
+                result = main_error(params, 1,
+                        "main_encrypt: fwrite (actual tag)");
             }
             if(result == EXIT_SUCCESS && params->debug) {
                 fprintf(params->out, "Baigtas užšifravimas, TAG=");
@@ -496,14 +512,14 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     }
     if(ciphertext_file != NULL) {
         if(fclose(ciphertext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti šifrogramos"
-                    " failo");
+            result = main_error(params, 1,
+                    "main_encrypt: fclose (ciphertext_file)");
         }
     }
     if(plaintext_file != NULL) {
         if(fclose(plaintext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti tekstogramos"
-                    " failo");
+            result = main_error(params, 1,
+                    "main_encrypt: nepavyko uždaryti tekstogramos failo");
         }
     }
     OPENSSL_cleanse(tag_pos, sizeof(fpos_t));
@@ -604,35 +620,37 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "rb");
         if(ciphertext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti šifrogramos"
-                    " failo");
+            result = main_error(params, 0,
+                    "main_decrypt: nepavyko atidaryti šifrogramos failo");
         }
     }
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "wb");
         if(plaintext_file == NULL) {
-            result = main_error(params, 0, "nepavyko atidaryti tekstogramos"
-                    " failo");
+            result = main_error(params, 0,
+                    "main_decrypt: nepavyko atidaryti tekstogramos failo");
         }
     }
     if(result == EXIT_SUCCESS) {
         fread(key_salt, sizeof(char), params->key_salt_length,
                 ciphertext_file);
         if(ferror(ciphertext_file)) {
-            result = main_error(params, 1, "nepavyko nuskaityti salt duomenų");
+            result = main_error(params, 1,
+                    "main_decrypt: nepavyko nuskaityti salt duomenų");
         }
     }
     if(result == EXIT_SUCCESS) {
         fread(iv, sizeof(char), params->iv_length, ciphertext_file);
         if(ferror(ciphertext_file)) {
             result = main_error(params, 1,
-                    "nepavyko nuskaityti inicializacijos vektoriaus");
+                    "main_decrypt: nepavyko nuskaityti inicializacijos"
+                    " vektoriaus");
         }
     }
     if(result == EXIT_SUCCESS) {
         fread(tag, sizeof(char), params->tag_length, ciphertext_file);
         if(ferror(ciphertext_file)) {
-            result = main_error(params, 1, "fread (tag)");
+            result = main_error(params, 1, "main_decrypt: fread (tag)");
         }
     }
     if(result == EXIT_SUCCESS) {
@@ -645,7 +663,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
                 (int)strlen(password), key_salt, (int)params->key_salt_length,
                 (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
-        result = main_error(params, 1, "PKCS5_PBKDF2_HMAC_SHA1");
+        result = main_error(params, 1,
+                "main_decrypt: PKCS5_PBKDF2_HMAC_SHA1");
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "Pradedamas iššifravimas, IV=");
@@ -658,34 +677,38 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     }
     if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(),
                 NULL, NULL, NULL) != 1) {
-        result = main_error(params, 1, "EVP_EncryptInit_ex (mode)");
+        result = main_error(params, 1,
+                "main_decrypt: EVP_EncryptInit_ex (mode)");
     }
     if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG,
                 (int)params->tag_length, tag) != 1) {
-        result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl (TAG)");
+        result = main_error(params, 1,
+                "main_decrypt: EVP_CIPHER_CTX_ctrl (TAG)");
     }
     if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
                 EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length, NULL) != 1) {
-        result = main_error(params, 1, "EVP_CIPHER_CTX_ctrl (IVLEN)");
+        result = main_error(params, 1,
+                "main_decrypt: EVP_CIPHER_CTX_ctrl (IVLEN)");
     }
     if(result == EXIT_SUCCESS && EVP_DecryptInit_ex(ctx, NULL,
                 NULL, key, iv) != 1) {
-        result = main_error(params, 1, "EVP_EncryptInit_ex (key, iv)");
+        result = main_error(params, 1,
+                "main_decrypt: EVP_EncryptInit_ex (key, iv)");
     }
     if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx,
                 ciphertext_file, plaintext_file) != EXIT_SUCCESS) {
-        result = main_error(params, 1, "main_decrypt_pipe");
+        result = main_error(params, 1, "main_decrypt: main_decrypt_pipe");
     }
     if(ciphertext_file != NULL) {
         if(fclose(ciphertext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti šifrogramos"
-                    " failo");
+            result = main_error(params, 1,
+                    "main_decrypt: fclose (ciphertext_file)");
         }
     }
     if(plaintext_file != NULL) {
         if(fclose(plaintext_file) == EOF) {
-            result = main_error(params, 1, "nepavyko uždaryti tekstogramos"
-                    " failo");
+            result = main_error(params, 1, "main_decrypt: fclose"
+                    " (plaintext_file)");
         }
     }
     OPENSSL_cleanse(tag, params->tag_length * sizeof(char));
