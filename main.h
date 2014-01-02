@@ -12,6 +12,16 @@
 #include "openssl/dh.h"
 
 typedef struct {
+    size_t max;
+    size_t len;
+    const char **all;
+    const char* current;
+    size_t current_i;
+} main_enum;
+
+void main_enum_init(main_enum *a, const char **all, size_t len);
+
+typedef struct {
     FILE *in;
     FILE *out;
     size_t size_max;

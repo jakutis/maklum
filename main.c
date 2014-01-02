@@ -110,6 +110,19 @@ int main(int argc, const char **argv) {
     }
 }
 
+void main_enum_init(main_enum *a, const char **all, size_t len) {
+    size_t i;
+
+    a->all = all;
+    a->len = len;
+    a->max = 0;
+    for(i = 0; i < len; i += 1) {
+        a->max = main_max(strlen(all[i]), a->max);
+    }
+    a->current = NULL;
+    a->current_i = 0;
+}
+
 int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
         EVP_PKEY **key) {
     int result = EXIT_SUCCESS;
