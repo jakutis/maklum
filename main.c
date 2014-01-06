@@ -139,11 +139,13 @@ int main_generate_and_write_dh_key(main_params *params, const char *filename,
         fprintf(params->out, "private key generated.\n");
     }
     if(result == EXIT_SUCCESS && (bio = BIO_new_file(filename, "wb")) == NULL) {
-        result = main_error(params, 1, "main_generate_and_write_dh_key: BIO_new_file");
+        result = main_error(params, 1,
+                "main_generate_and_write_dh_key: BIO_new_file");
     }
     if(result == EXIT_SUCCESS && (
                 private ?
-                PEM_write_bio_PKCS8PrivateKey(bio, key, NULL, NULL, 0, NULL, NULL) :
+                PEM_write_bio_PKCS8PrivateKey(bio, key, NULL, NULL, 0, NULL,
+                    NULL) :
                 PEM_write_bio_PUBKEY(bio, key)
                 ) != 1) {
         result = main_error(params, 1,
@@ -197,7 +199,6 @@ int main_generate_keys(main_params *params) {
 
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "main_generate_keys: DH params read.\n");
-        fprintf(params->out, "main_generate_keys: missing parameters: %d\n", EVP_PKEY_missing_parameters(dh_params));
     }
 
     if(result == EXIT_SUCCESS && main_generate_and_write_dh_key(params,
@@ -271,8 +272,6 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
         fprintf(params->out, "main_generate_dh_key: keygen initialized.\n");
     }
     if(result == EXIT_SUCCESS && (status = EVP_PKEY_keygen(ctx, key)) != 1) {
-        ERR_print_errors_fp(params->out);
-        fprintf(params->out, "main_generate_dh_key: EVP_PKEY_keygen returned status %d\n", status);
         result = main_error(params, 1,
                 "main_generate_dh_key: EVP_PKEY_keygen");
     }
@@ -499,7 +498,8 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
 
     if(result == EXIT_SUCCESS) {
         while(!feof(in)) {
-            plaintext_available = fread(plaintext, 1, params->pipe_buffer_size, in);
+            plaintext_available = fread(plaintext, 1, params->pipe_buffer_size,
+                    in);
             fprintf(params->out, "Nuskaityta tekstogramos baitų: ");
             main_write_size_t(params, plaintext_available);
             fprintf(params->out, "\n");
@@ -908,8 +908,8 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     }
     if(result == EXIT_SUCCESS) {
         while(!feof(in)) {
-            ciphertext_available = fread(ciphertext, 1, params->pipe_buffer_size,
-                    in);
+            ciphertext_available = fread(ciphertext, 1,
+                    params->pipe_buffer_size, in);
             fprintf(params->out, "Nuskaityta šifrogramos baitų: ");
             main_write_size_t(params, ciphertext_available);
             fprintf(params->out, "\n");
