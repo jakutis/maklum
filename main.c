@@ -27,8 +27,8 @@ int main(int argc, const char **argv) {
 0x75, 0xF2, 0x63, 0x75, 0xD7, 0x01, 0x41, 0x03, 0xA4, 0xB5, 0x43, 0x30,
 0xC1, 0x98, 0xAF, 0x12, 0x61, 0x16, 0xD2, 0x27, 0x6E, 0x11, 0x71, 0x5F,
 0x69, 0x38, 0x77, 0xFA, 0xD7, 0xEF, 0x09, 0xCA, 0xDB, 0x09, 0x4A, 0xE9,
-0x1E, 0x1A, 0x15, 0x97,
-};
+0x1E, 0x1A, 0x15, 0x97
+    };
     unsigned char g[] = {
 0x3F, 0xB3, 0x2C, 0x9B, 0x73, 0x13, 0x4D, 0x0B, 0x2E, 0x77, 0x50, 0x66,
 0x60, 0xED, 0xBD, 0x48, 0x4C, 0xA7, 0xB1, 0x8F, 0x21, 0xEF, 0x20, 0x54,
@@ -51,10 +51,11 @@ int main(int argc, const char **argv) {
 0x18, 0x4B, 0x52, 0x3D, 0x1D, 0xB2, 0x46, 0xC3, 0x2F, 0x63, 0x07, 0x84,
 0x90, 0xF0, 0x0E, 0xF8, 0xD6, 0x47, 0xD1, 0x48, 0xD4, 0x79, 0x54, 0x51,
 0x5E, 0x23, 0x27, 0xCF, 0xEF, 0x98, 0xC5, 0x82, 0x66, 0x4B, 0x4C, 0x0F,
-0x6C, 0xC4, 0x16, 0x59,
-};
+0x6C, 0xC4, 0x16, 0x59
+    };
 
     params.debug = 1;
+    params.filename_length = 255;
     params.tag_length = 16;
     params.in = stdin;
     params.out = stdout;
@@ -64,8 +65,8 @@ int main(int argc, const char **argv) {
     params.iv_length = 16;
     params.key_salt_length = 32;
     params.size_t_format = NULL;
-    params.dh_prime_length = 2048;
-    params.dh_generator_length = 2048;
+    params.dh_prime_length = 256;
+    params.dh_generator_length = 256;
     params.dh_generator = g;
     params.dh_prime = p;
     params.size_max = (size_t) - 1;
@@ -79,7 +80,8 @@ int main(int argc, const char **argv) {
     }
 
     if(argc < 2) {
-        return main_error(&params, 0, "main: nepateiktas operacijos pavadinimas");
+        return main_error(&params, 0,
+                "main: nepateiktas operacijos pavadinimas");
     }
     if(strcmp(argv[1], "uzsifruoti") == 0) {
         if(argc == 2) {
@@ -101,13 +103,134 @@ int main(int argc, const char **argv) {
                     "main: nepateiktas tekstogramos failo vardas");
         }
         return main_decrypt(&params, argv[2], argv[3]);
-    } else if(strcmp(argv[1], "sukurtiparametrus") == 0) {
-        return main_a(&params);
+    } else if(strcmp(argv[1], "sukurtiraktus") == 0) {
+        return main_generate_keys(&params);
     } else {
         return main_error(&params, 0, "main: neatpažintas operacijos"
                 " pavadinimas (turi būti vienas iš: \"uzsifruoti\","
-                " \"issifruoti\", \"sukurtiparametrus\")");
+                " \"issifruoti\", \"sukurtiraktus\")");
     }
+}
+
+int main_read_filename(main_params *params, const char *message,
+        char *filename) {
+    int result = EXIT_SUCCESS;
+
+    fprintf(params->out, "%s (maksimalus ilgis yra ", message);
+    main_write_size_t(params, params->filename_length);
+    fprintf(params->out, "): ");
+    main_read_text(params, filename, params->filename_length);
+
+    return result;
+}
+
+int main_generate_and_write_dh_key(main_params *params, const char *filename,
+        EVP_PKEY *dh_params, int private) {
+    int result = EXIT_SUCCESS;
+    EVP_PKEY *key = NULL;
+    BIO *bio = NULL;
+
+    if(result == EXIT_SUCCESS && main_generate_dh_key(params, dh_params, &key)
+            != EXIT_SUCCESS) {
+        result = main_error(params, 1,
+                "main_generate_and_write_dh_key: main_generate_dh_key");
+    }
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "private key generated.\n");
+    }
+    if(result == EXIT_SUCCESS && (bio = BIO_new_file(filename, "wb")) == NULL) {
+        result = main_error(params, 1, "main_generate_and_write_dh_key: BIO_new_file");
+    }
+    if(result == EXIT_SUCCESS && (
+                private ?
+                PEM_write_bio_PKCS8PrivateKey(bio, key, NULL, NULL, 0, NULL, NULL) :
+                PEM_write_bio_PUBKEY(bio, key)
+                ) != 1) {
+        result = main_error(params, 1,
+                "main_generate_and_write_dh_key: PEM_write_bio_...");
+    }
+    BIO_free_all(bio);
+    EVP_PKEY_free(key);
+
+    return result;
+}
+
+int main_generate_keys(main_params *params) {
+    int result = EXIT_SUCCESS;
+    char *private_key_filename = NULL, *public_key_filename = NULL;
+    EVP_PKEY *dh_params = NULL;
+
+    if(result == EXIT_SUCCESS && (private_key_filename =
+                malloc(params->filename_length + 1)) == NULL) {
+        result = main_error(params, 1, "main_generate_keys: malloc"
+                " (private_key_filename)");
+    }
+    if(result == EXIT_SUCCESS && (public_key_filename =
+                malloc(params->filename_length + 1)) == NULL) {
+        result = main_error(params, 1, "main_generate_keys: malloc"
+                " (public_key_filename)");
+    }
+
+    if(result == EXIT_SUCCESS && main_read_filename(params,
+                "Suveskite failo kelią kuriame norite išsaugoti savo privatųjį"
+                " raktą", private_key_filename) != EXIT_SUCCESS) {
+        result = main_error(params, 1,
+                "main_generate_keys: main_read_filename (private)");
+    }
+    if(result == EXIT_SUCCESS && main_read_filename(params,
+                "Suveskite failo kelią kuriame norite išsaugoti savo viešąjį"
+                " raktą", public_key_filename) != EXIT_SUCCESS) {
+        result = main_error(params, 1,
+                "main_generate_keys: main_read_filename (public)");
+    }
+
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "public = %s, private = %s\n", public_key_filename,
+                private_key_filename);
+    }
+
+    if(result == EXIT_SUCCESS &&
+            main_fill_dh_params(params, &dh_params) != EXIT_SUCCESS) {
+        result = main_error(params, 1,
+                "main_generate_keys: main_fill_dh_params");
+    }
+
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_keys: DH params read.\n");
+        fprintf(params->out, "main_generate_keys: missing parameters: %d\n", EVP_PKEY_missing_parameters(dh_params));
+    }
+
+    if(result == EXIT_SUCCESS && main_generate_and_write_dh_key(params,
+                private_key_filename, dh_params, 1) != EXIT_SUCCESS) {
+        result = main_error(params, 1,
+                "main_generate_keys: main_generate_and_write_dh_key (private)");
+    }
+    if(private_key_filename != NULL) {
+        OPENSSL_cleanse(private_key_filename, params->filename_length + 1);
+        free(private_key_filename);
+    }
+
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "private key written.\n");
+    }
+
+    if(result == EXIT_SUCCESS && main_generate_and_write_dh_key(params,
+                public_key_filename, dh_params, 0) != EXIT_SUCCESS) {
+        result = main_error(params, 1,
+                "main_generate_keys: main_generate_and_write_dh_key (public)");
+    }
+    if(public_key_filename != NULL) {
+        OPENSSL_cleanse(public_key_filename, params->filename_length + 1);
+        free(public_key_filename);
+    }
+
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "public key written.\n");
+    }
+
+    EVP_PKEY_free(dh_params);
+
+    return result;
 }
 
 void main_enum_init(main_enum *a, const char **all, size_t len) {
@@ -126,20 +249,35 @@ void main_enum_init(main_enum *a, const char **all, size_t len) {
 int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
         EVP_PKEY **key) {
     int result = EXIT_SUCCESS;
+    int status = 0;
     EVP_PKEY_CTX *ctx = NULL;
 
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_dh_key: entry.\n");
+    }
     if(result == EXIT_SUCCESS &&
             (ctx = EVP_PKEY_CTX_new(dh_params, NULL)) == NULL) {
-        result = main_error(params, 0,
+        result = main_error(params, 1,
                 "main_generate_dh_key: EVP_PKEY_CTX_new");
     }
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_dh_key: context created.\n");
+    }
     if(result == EXIT_SUCCESS && EVP_PKEY_keygen_init(ctx) != 1) {
-        result = main_error(params, 0,
+        result = main_error(params, 1,
                 "main_generate_dh_key: EVP_PKEY_keygen_init");
     }
-    if(result == EXIT_SUCCESS && EVP_PKEY_keygen(ctx, key) != 1) {
-        result = main_error(params, 0,
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_dh_key: keygen initialized.\n");
+    }
+    if(result == EXIT_SUCCESS && (status = EVP_PKEY_keygen(ctx, key)) != 1) {
+        ERR_print_errors_fp(params->out);
+        fprintf(params->out, "main_generate_dh_key: EVP_PKEY_keygen returned status %d\n", status);
+        result = main_error(params, 1,
                 "main_generate_dh_key: EVP_PKEY_keygen");
+    }
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_dh_key: keygen finished.\n");
     }
 
     EVP_PKEY_CTX_free(ctx);
@@ -147,67 +285,35 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
 }
 
 
-int main_fill_dh_params(main_params *params, EVP_PKEY *dh_params) {
+int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params) {
     int result = EXIT_SUCCESS;
     DH *dh = NULL;
 
     if(result == EXIT_SUCCESS && (dh = DH_new()) == NULL) {
-        result = main_error(params, 0,"main_fill_dh_params: DH_new");
+        result = main_error(params, 1,"main_fill_dh_params: DH_new");
     }
     if(result == EXIT_SUCCESS &&
             (dh->p = BN_bin2bn(params->dh_prime,
                                (int)params->dh_prime_length,
                                NULL)) == NULL) {
-        result = main_error(params, 0,
+        result = main_error(params, 1,
                 "main_fill_dh_params: BN_bin2bn (prime)");
     }
     if(result == EXIT_SUCCESS &&
             (dh->g = BN_bin2bn(params->dh_generator,
                                (int)params->dh_generator_length,
                                NULL)) == NULL) {
-        result = main_error(params, 0,
+        result = main_error(params, 1,
                 "main_fill_dh_params: BN_bin2bn (generator)");
     }
-    if(result == EXIT_SUCCESS && (dh_params = EVP_PKEY_new()) == NULL) {
-        result = main_error(params, 0, "main_fill_dh_params: EVP_PKEY_new");
+    if(result == EXIT_SUCCESS && (*dh_params = EVP_PKEY_new()) == NULL) {
+        result = main_error(params, 1, "main_fill_dh_params: EVP_PKEY_new");
     }
-		if(result == EXIT_SUCCESS && EVP_PKEY_assign_DH(dh_params, dh) != 1) {
-        result = main_error(params, 0,
-                "main_fill_dh_params: EVP_PKEY_assign_DH");
+		if(result == EXIT_SUCCESS && EVP_PKEY_set1_DH(*dh_params, dh) != 1) {
+        result = main_error(params, 1,
+                "main_fill_dh_params: EVP_PKEY_set1_DH");
     }
     DH_free(dh);
-
-    return result;
-}
-
-int main_a(main_params *params) {
-    int result = EXIT_SUCCESS;
-
-    EVP_PKEY_CTX *ctx = NULL;
-    EVP_PKEY *dh_params = NULL;
-
-    if(result == EXIT_SUCCESS &&
-            (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL)) == NULL) {
-        result = main_error(params, 0, "main_a: EVP_PKEY_CTX_new_id");
-    }
-    if(result == EXIT_SUCCESS && EVP_PKEY_paramgen_init(ctx) != 1) {
-        result = main_error(params, 0, "main_a: EVP_PKEY_paramgen_init");
-    }
-    if(result == EXIT_SUCCESS &&
-            EVP_PKEY_CTX_set_dh_paramgen_prime_len(ctx,
-                (int)params->dh_prime_length) != 1) {
-        result = main_error(params, 0,
-                "main_a: EVP_PKEY_CTX_set_dh_paramgen_prime_len");
-    }
-    if(result == EXIT_SUCCESS && params->debug) {
-        fprintf(params->out, "Pradedamas vykdyti parametrų generavimas.\n");
-    }
-    if(result == EXIT_SUCCESS && EVP_PKEY_paramgen(ctx, &dh_params)) {
-        result = main_error(params, 0, "main_a: EVP_PKEY_paramgen");
-    }
-
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(dh_params);
 
     return result;
 }
@@ -253,21 +359,30 @@ int main_read_text(main_params *params, char *text, size_t text_length) {
     return result;
 }
 
-int main_read_yesno(main_params *params, const char *positive_response) {
-    int result;
+int main_read_yesno(main_params *params, const char *positive_response,
+        int *yesno) {
+    int result = EXIT_SUCCESS;
     size_t n;
-    char *response;
+    char *response = NULL;
 
     n = strlen(positive_response);
-    response = malloc(n + 1);
+    if(result == EXIT_SUCCESS && (response = malloc(n + 1)) == NULL) {
+        result = EXIT_FAILURE;
+    }
 
-    main_read_text(params, response, n);
-    result = strcmp(response, positive_response) == 0;
+    if(result == EXIT_SUCCESS && main_read_text(params, response, n) !=
+            EXIT_SUCCESS) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS) {
+        *yesno = strcmp(response, positive_response) == 0;
+    }
 
-    OPENSSL_cleanse(response, n + 1);
+    if(response != NULL) {
+        OPENSSL_cleanse(response, n + 1);
+        free(response);
+    }
     OPENSSL_cleanse(&n, sizeof n);
-
-    free(response);
 
     return result;
 }
@@ -278,13 +393,20 @@ size_t main_max(size_t a, size_t b) {
 
 int main_read_enum(main_params *params, main_enum *a) {
     int result = EXIT_SUCCESS;
-    char *response;
+    char *response = NULL;
     size_t i;
 
-    response = malloc(a->max + 1);
+    if(result == EXIT_SUCCESS && (response = malloc(a->max + 1)) == NULL) {
+        result = EXIT_FAILURE;
+    }
 
-    a->current = NULL;
-    if((result = main_read_text(params, response, a->max)) == EXIT_SUCCESS) {
+    if(result == EXIT_SUCCESS &&
+            main_read_text(params, response, a->max) != EXIT_SUCCESS) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS) {
+        a->current = NULL;
         for(i = 0; i < a->len; i += 1) {
             if(!strcmp(a->all[i], response)) {
                 a->current = a->all[i];
@@ -293,9 +415,11 @@ int main_read_enum(main_params *params, main_enum *a) {
         }
     }
 
-    OPENSSL_cleanse(response, a->max + 1);
+    if(response != NULL) {
+        OPENSSL_cleanse(response, a->max + 1);
+        free(response);
+    }
     OPENSSL_cleanse(&i, sizeof i);
-    free(response);
 
     return result;
 }
@@ -314,18 +438,27 @@ int main_string_to_integer(main_params *params, char *string, size_t *integer) {
 }
 
 int main_read_integer(main_params *params, size_t *integer) {
-    int result;
-    char *string;
+    int result = EXIT_SUCCESS;
+    char *string = NULL;
     size_t n;
 
     main_digits(params->size_max, &n);
-    string = malloc(n + 1);
-    main_read_text(params, string, n);
-    result = main_string_to_integer(params, string, integer);
+    if(result == EXIT_SUCCESS && (string = malloc(n + 1)) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS &&
+            main_read_text(params, string, n) != EXIT_SUCCESS) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS &&
+            main_string_to_integer(params, string, integer) != EXIT_SUCCESS) {
+        result = EXIT_FAILURE;
+    }
 
-    OPENSSL_cleanse(string, n + 1);
-
-    free(string);
+    if(string != NULL) {
+        OPENSSL_cleanse(string, n + 1);
+        free(string);
+    }
     return result;
 }
 
@@ -357,22 +490,31 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     unsigned char *plaintext = malloc(params->pipe_buffer_size);
     unsigned char *ciphertext = malloc(params->pipe_buffer_size);
 
-    while(!feof(in)) {
-        plaintext_available = fread(plaintext, 1, params->pipe_buffer_size, in);
-        fprintf(params->out, "Nuskaityta tekstogramos baitų: ");
-        main_write_size_t(params, plaintext_available);
-        fprintf(params->out, "\n");
-        if(ferror(in) ||
-                EVP_EncryptUpdate(ctx, ciphertext,
-                    &ciphertext_available, plaintext,
-                    (int)plaintext_available) != 1 ||
-                fwrite(ciphertext, 1, (size_t)ciphertext_available, out) <
-                    (size_t)ciphertext_available) {
-            result = EXIT_FAILURE;
-            break;
+    if(plaintext == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(ciphertext == NULL) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS) {
+        while(!feof(in)) {
+            plaintext_available = fread(plaintext, 1, params->pipe_buffer_size, in);
+            fprintf(params->out, "Nuskaityta tekstogramos baitų: ");
+            main_write_size_t(params, plaintext_available);
+            fprintf(params->out, "\n");
+            if(ferror(in) ||
+                    EVP_EncryptUpdate(ctx, ciphertext,
+                        &ciphertext_available, plaintext,
+                        (int)plaintext_available) != 1 ||
+                    fwrite(ciphertext, 1, (size_t)ciphertext_available, out) <
+                        (size_t)ciphertext_available) {
+                result = EXIT_FAILURE;
+                break;
+            }
+            fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
+                    ciphertext_available);
         }
-        fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
-                ciphertext_available);
     }
     if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext,
                 &ciphertext_available) != 1) {
@@ -388,13 +530,100 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 ciphertext_available);
     }
 
-    OPENSSL_cleanse(plaintext, params->pipe_buffer_size);
-    OPENSSL_cleanse(ciphertext, params->pipe_buffer_size);
+    if(plaintext != NULL) {
+        OPENSSL_cleanse(plaintext, params->pipe_buffer_size);
+        free(plaintext);
+    }
+    if(ciphertext != NULL) {
+        OPENSSL_cleanse(ciphertext, params->pipe_buffer_size);
+        free(ciphertext);
+    }
     OPENSSL_cleanse(&plaintext_available, sizeof plaintext_available);
     OPENSSL_cleanse(&ciphertext_available, sizeof ciphertext_available);
 
-    free(plaintext);
-    free(ciphertext);
+    return result;
+}
+
+int main_derive_key_dh(const char *private_key_filename,
+        const char *public_key_filename, unsigned char *key,
+        size_t key_length) {
+    int result = EXIT_SUCCESS;
+    unsigned char *skey = NULL;
+    size_t skeylen = 0;
+    EVP_MD_CTX mdctx;
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *pkey = NULL, *peerkey = NULL;
+    BIO *bio = NULL;
+
+    if(key_length != 32) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS &&
+            (bio = BIO_new_file(private_key_filename, "rb")) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS &&
+            (pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    BIO_free_all(bio);
+
+    if(result == EXIT_SUCCESS &&
+            (bio = BIO_new_file(public_key_filename, "rb")) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS &&
+            (peerkey =
+             PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    BIO_free_all(bio);
+
+    if(result == EXIT_SUCCESS) {
+    }
+    if(result == EXIT_SUCCESS && (ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_derive_init(ctx) != 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_derive_set_peer(ctx, peerkey) != 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_derive(ctx, NULL, &skeylen) != 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && (skey = malloc(skeylen)) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_derive(ctx, skey, &skeylen) != 1) {
+        result = EXIT_FAILURE;
+    }
+		EVP_PKEY_CTX_free(ctx);
+
+    EVP_MD_CTX_init(&mdctx);
+    if(result == EXIT_SUCCESS &&
+            EVP_DigestInit_ex(&mdctx, EVP_sha256(), NULL) != 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && EVP_DigestUpdate(&mdctx, skey, skeylen) != 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && EVP_DigestFinal_ex(&mdctx, key, NULL) != 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && EVP_MD_CTX_cleanup(&mdctx) != 1) {
+        result = EXIT_FAILURE;
+    }
+
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_free(peerkey);
+    if(skey != NULL) {
+        OPENSSL_cleanse(skey, skeylen);
+        free(skey);
+    }
+    OPENSSL_cleanse(&skeylen, sizeof skeylen);
 
     return result;
 }
@@ -403,6 +632,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         const char *ciphertext_filename) {
     int result = EXIT_SUCCESS;
 
+    char *public_key_filename = malloc(params->filename_length + 1);
+    char *private_key_filename = malloc(params->filename_length + 1);
     unsigned char *tag = malloc(params->tag_length);
     unsigned char *iv = malloc(params->iv_length);
     unsigned char *key_salt = malloc(params->key_salt_length);
@@ -414,23 +645,36 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     size_t kt_password = 0, kt_dh = 1;
     const char *key_types[] = {"password", "dh"};
     main_enum key_type;
+    int confirm = 0;
 
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
 
-    main_enum_init(&key_type, key_types, 2);
+    if(public_key_filename == NULL ||
+            private_key_filename == NULL ||
+            tag == NULL ||
+            iv == NULL ||
+            key_salt == NULL ||
+            key == NULL ||
+            password == NULL) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS) {
+        main_enum_init(&key_type, key_types, 2);
+    }
 
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
         if(plaintext_file == NULL) {
-            result = main_error(params, 0, "main_encrypt: nepavyko atidaryti"
+            result = main_error(params, 1, "main_encrypt: nepavyko atidaryti"
                     " tekstogramos failo");
         }
     }
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "wb");
         if(ciphertext_file == NULL) {
-            result = main_error(params, 0, "main_encrypt: nepavyko atidaryti"
+            result = main_error(params, 1, "main_encrypt: nepavyko atidaryti"
                     " šifrogramos failo");
         }
     }
@@ -439,8 +683,20 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     }
     if(result == EXIT_SUCCESS) {
         if(key_type.current_i == kt_dh) {
-            result = main_error(params, 1, "main_encrypt: funkcija dar"
-                    " neįgyvendinta");
+            fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
+                    " failo (maksimalus ilgis yra ");
+            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, private_key_filename,
+                    params->filename_length);
+            fprintf(params->out, "Suveskite kelią iki gavėjo viešojo rakto"
+                    " failo (maksimalus ilgis yra ");
+            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, public_key_filename,
+                    params->filename_length);
+            result = main_derive_key_dh(private_key_filename,
+                    public_key_filename, key, key_length);
         }
         if(key_type.current_i == kt_password) {
             fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
@@ -470,112 +726,115 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         fprintf(params->out, "Tekstogramos failas: %s\n", plaintext_filename);
         fprintf(params->out, "Šifrogramos failas: %s\n", ciphertext_filename);
         fprintf(params->out, "Ar pradėti operaciją (taip/ne)? ");
-        if(main_read_yesno(params, "taip")) {
-            fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
+        if(main_read_yesno(params, "taip", &confirm) != EXIT_SUCCESS) {
+            result = main_error(params, 1, "main_encrypt: main_read_yesno");
+        }
+    }
+    if(result == EXIT_SUCCESS && confirm) {
+        fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
 
-            /*
-             * 2010 - Niels Ferguson, Bruce Schneier, Tadayoshi Kohno -
-             * Cryptography Engineering - Design Principles and Practical
-             * Applications:
-             * As with OFB mode, you must make absolutely sure never to reuse
-             * a singlekey / nonce combination.
-             *
-             * In the previous versions of this system, instead of a random IV
-             * (RAND_bytes) we derived IV from user_id and message_id to rule
-             * out IV collision, which is more probable when more and more
-             * encryption operations are done.
-             *
-             * But now, we go back to just generating a random IV. The
-             * probability of collision is probably lower than a probability of
-             * user entering the same user id and message id pair.
-             */
-            if(result == EXIT_SUCCESS && RAND_bytes(iv,
-                        (int)params->iv_length) != 1) {
-                result = main_error(params, 1, "main_encrypt: RAND_bytes (iv)");
-            }
-            if(result == EXIT_SUCCESS && params->debug) {
-                fprintf(params->out, "Pradedamas užšifravimas, IV=");
-                main_write_bytes_hex(params, iv, params->iv_length);
-                fprintf(params->out, ", KEY=");
-                main_write_bytes_hex(params, key, key_length);
-                fprintf(params->out, ".\n");
-            }
-            /*
-             * 2011 - David McGrew - Galois Counter Mode:
-             *
-             * Another criticism is that security degrades with the length of
-             * messages that are processed. These demerits are due to the
-             * choice of hash function used in GCM, which also bring low
-             * computational cost and low latency.
-             */
-            /*
-             * Since this cryptosystem is designed to for the exchange of
-             * manually typed messages by two persons, it is not expected
-             * that the vulnerability related to message length is of any
-             * concern.
-             */
-            if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
-                        EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
-                result = main_error(params, 1,
-                        "main_encrypt: EVP_EncryptInit_ex (mode)");
-            }
-            if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
-                        EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length,
-                        NULL) != 1) {
-                result = main_error(params, 1,
-                        "main_encrypt: EVP_CIPHER_CTX_ctrl");
+        /*
+         * 2010 - Niels Ferguson, Bruce Schneier, Tadayoshi Kohno -
+         * Cryptography Engineering - Design Principles and Practical
+         * Applications:
+         * As with OFB mode, you must make absolutely sure never to reuse
+         * a singlekey / nonce combination.
+         *
+         * In the previous versions of this system, instead of a random IV
+         * (RAND_bytes) we derived IV from user_id and message_id to rule
+         * out IV collision, which is more probable when more and more
+         * encryption operations are done.
+         *
+         * But now, we go back to just generating a random IV. The
+         * probability of collision is probably lower than a probability of
+         * user entering the same user id and message id pair.
+         */
+        if(result == EXIT_SUCCESS && RAND_bytes(iv,
+                    (int)params->iv_length) != 1) {
+            result = main_error(params, 1, "main_encrypt: RAND_bytes (iv)");
+        }
+        if(result == EXIT_SUCCESS && params->debug) {
+            fprintf(params->out, "Pradedamas užšifravimas, IV=");
+            main_write_bytes_hex(params, iv, params->iv_length);
+            fprintf(params->out, ", KEY=");
+            main_write_bytes_hex(params, key, key_length);
+            fprintf(params->out, ".\n");
+        }
+        /*
+         * 2011 - David McGrew - Galois Counter Mode:
+         *
+         * Another criticism is that security degrades with the length of
+         * messages that are processed. These demerits are due to the
+         * choice of hash function used in GCM, which also bring low
+         * computational cost and low latency.
+         */
+        /*
+         * Since this cryptosystem is designed to for the exchange of
+         * manually typed messages by two persons, it is not expected
+         * that the vulnerability related to message length is of any
+         * concern.
+         */
+        if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
+                    EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
+            result = main_error(params, 1,
+                    "main_encrypt: EVP_EncryptInit_ex (mode)");
+        }
+        if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
+                    EVP_CTRL_GCM_SET_IVLEN, (int)params->iv_length,
+                    NULL) != 1) {
+            result = main_error(params, 1,
+                    "main_encrypt: EVP_CIPHER_CTX_ctrl");
 ;
-            }
-            if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
-                        NULL, NULL, key, iv) != 1) {
-                result = main_error(params, 1,
-                        "main_encrypt: EVP_EncryptInit_ex (key, iv)");
-            }
-            if(result == EXIT_SUCCESS && fwrite(key_salt, 1,
-                        params->key_salt_length, ciphertext_file) <
-                    params->key_salt_length) {
-                result = main_error(params, 1,
-                        "main_encrypt: fwrite (key_salt)");
-            }
-            if(result == EXIT_SUCCESS && fwrite(iv, 1, params->iv_length,
-                        ciphertext_file) < params->iv_length) {
-                result = main_error(params, 1,
-                        "main_encrypt: fwrite (iv)");
-            }
-            if(result == EXIT_SUCCESS && fgetpos(ciphertext_file, &tag_pos)) {
-                result = main_error(params, 1,
-                        "main_encrypt: fgetpos");
-            }
-            if(result == EXIT_SUCCESS && fwrite(tag, 1, params->tag_length,
-                        ciphertext_file) < params->tag_length) {
-                result = main_error(params, 1,
-                        "main_encrypt: fwrite (spacing tag)");
-            }
-            if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
-                        plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
-                result = main_error(params, 1,
-                        "main_encrypt: main_encrypt_pipe");
-            }
-            if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
-                        EVP_CTRL_GCM_GET_TAG,
-                        (int)params->tag_length, tag) != 1) {
-                result = main_error(params, 1,
-                        "main_encrypt: EVP_CIPHER_CTX_ctrl");
-            }
-            if(result == EXIT_SUCCESS && fsetpos(ciphertext_file, &tag_pos)) {
-                result = main_error(params, 1,
-                        "main_encrypt: fsetpos");
-            }
-            if(result == EXIT_SUCCESS && fwrite(tag, 1, params->tag_length,
-                        ciphertext_file) < params->tag_length) {
-                result = main_error(params, 1,
-                        "main_encrypt: fwrite (actual tag)");
-            }
-            if(result == EXIT_SUCCESS && params->debug) {
-                fprintf(params->out, "Baigtas užšifravimas, TAG=");
-                main_write_bytes_hex(params, tag, params->tag_length);
-                fprintf(params->out, ".\n");
-            }
+        }
+        if(result == EXIT_SUCCESS && EVP_EncryptInit_ex(ctx,
+                    NULL, NULL, key, iv) != 1) {
+            result = main_error(params, 1,
+                    "main_encrypt: EVP_EncryptInit_ex (key, iv)");
+        }
+        if(result == EXIT_SUCCESS && fwrite(key_salt, 1,
+                    params->key_salt_length, ciphertext_file) <
+                params->key_salt_length) {
+            result = main_error(params, 1,
+                    "main_encrypt: fwrite (key_salt)");
+        }
+        if(result == EXIT_SUCCESS && fwrite(iv, 1, params->iv_length,
+                    ciphertext_file) < params->iv_length) {
+            result = main_error(params, 1,
+                    "main_encrypt: fwrite (iv)");
+        }
+        if(result == EXIT_SUCCESS && fgetpos(ciphertext_file, &tag_pos)) {
+            result = main_error(params, 1,
+                    "main_encrypt: fgetpos");
+        }
+        if(result == EXIT_SUCCESS && fwrite(tag, 1, params->tag_length,
+                    ciphertext_file) < params->tag_length) {
+            result = main_error(params, 1,
+                    "main_encrypt: fwrite (spacing tag)");
+        }
+        if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
+                    plaintext_file, ciphertext_file) != EXIT_SUCCESS) {
+            result = main_error(params, 1,
+                    "main_encrypt: main_encrypt_pipe");
+        }
+        if(result == EXIT_SUCCESS && EVP_CIPHER_CTX_ctrl(ctx,
+                    EVP_CTRL_GCM_GET_TAG,
+                    (int)params->tag_length, tag) != 1) {
+            result = main_error(params, 1,
+                    "main_encrypt: EVP_CIPHER_CTX_ctrl");
+        }
+        if(result == EXIT_SUCCESS && fsetpos(ciphertext_file, &tag_pos)) {
+            result = main_error(params, 1,
+                    "main_encrypt: fsetpos");
+        }
+        if(result == EXIT_SUCCESS && fwrite(tag, 1, params->tag_length,
+                    ciphertext_file) < params->tag_length) {
+            result = main_error(params, 1,
+                    "main_encrypt: fwrite (actual tag)");
+        }
+        if(result == EXIT_SUCCESS && params->debug) {
+            fprintf(params->out, "Baigtas užšifravimas, TAG=");
+            main_write_bytes_hex(params, tag, params->tag_length);
+            fprintf(params->out, ".\n");
         }
     }
     if(ciphertext_file != NULL) {
@@ -591,19 +850,37 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         }
     }
     OPENSSL_cleanse(&tag_pos, sizeof tag_pos);
-    OPENSSL_cleanse(tag, params->tag_length);
-    OPENSSL_cleanse(password, params->password_length + 1);
-    OPENSSL_cleanse(key, key_length);
-    OPENSSL_cleanse(iv, params->iv_length);
-    OPENSSL_cleanse(key_salt, params->key_salt_length);
+    if(tag != NULL) {
+        OPENSSL_cleanse(tag, params->tag_length);
+        free(tag);
+    }
+    if(password != NULL) {
+        OPENSSL_cleanse(password, params->password_length + 1);
+        free(password);
+    }
+    if(key != NULL) {
+        OPENSSL_cleanse(key, key_length);
+        free(key);
+    }
+    if(private_key_filename != NULL) {
+        OPENSSL_cleanse(private_key_filename, params->password_length + 1);
+        free(private_key_filename);
+    }
+    if(public_key_filename != NULL) {
+        OPENSSL_cleanse(public_key_filename, params->password_length + 1);
+        free(public_key_filename);
+    }
+    if(iv != NULL) {
+        OPENSSL_cleanse(iv, params->iv_length);
+        free(iv);
+    }
+    if(key_salt != NULL) {
+        OPENSSL_cleanse(key_salt, params->key_salt_length);
+        free(key_salt);
+    }
     EVP_CIPHER_CTX_free(ctx);
-    free(tag);
-    free(password);
-    free(iv);
-    free(key);
-    free(key_salt);
 
-    if(result == EXIT_SUCCESS) {
+    if(result == EXIT_SUCCESS && confirm) {
         fprintf(params->out, "Užšifravimo operacija baigta vykdyti"
                 " sėkmingai\n");
     }
@@ -626,22 +903,27 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     unsigned char *plaintext = malloc(params->pipe_buffer_size);
     unsigned char *ciphertext = malloc(params->pipe_buffer_size);
 
-    while(!feof(in)) {
-        ciphertext_available = fread(ciphertext, 1, params->pipe_buffer_size,
-                in);
-        fprintf(params->out, "Nuskaityta šifrogramos baitų: ");
-        main_write_size_t(params, ciphertext_available);
-        fprintf(params->out, "\n");
-        if(ferror(in) ||
-                EVP_DecryptUpdate(ctx, plaintext, &plaintext_available,
-                    ciphertext, (int)ciphertext_available) != 1 ||
-                fwrite(plaintext, 1, (size_t)plaintext_available, out)
-                    < (size_t)plaintext_available) {
-            result = EXIT_FAILURE;
-            break;
+    if(plaintext == NULL || ciphertext == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS) {
+        while(!feof(in)) {
+            ciphertext_available = fread(ciphertext, 1, params->pipe_buffer_size,
+                    in);
+            fprintf(params->out, "Nuskaityta šifrogramos baitų: ");
+            main_write_size_t(params, ciphertext_available);
+            fprintf(params->out, "\n");
+            if(ferror(in) ||
+                    EVP_DecryptUpdate(ctx, plaintext, &plaintext_available,
+                        ciphertext, (int)ciphertext_available) != 1 ||
+                    fwrite(plaintext, 1, (size_t)plaintext_available, out)
+                        < (size_t)plaintext_available) {
+                result = EXIT_FAILURE;
+                break;
+            }
+            fprintf(params->out, "Įrašyta tekstogramos baitų: %d\n",
+                    plaintext_available);
         }
-        fprintf(params->out, "Įrašyta tekstogramos baitų: %d\n",
-                plaintext_available);
     }
     if(result == EXIT_SUCCESS && EVP_DecryptFinal_ex(ctx, plaintext,
                 &plaintext_available) != 1) {
@@ -657,13 +939,16 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 plaintext_available);
     }
 
-    OPENSSL_cleanse(ciphertext, params->pipe_buffer_size);
-    OPENSSL_cleanse(plaintext, params->pipe_buffer_size);
+    if(ciphertext != NULL) {
+        OPENSSL_cleanse(ciphertext, params->pipe_buffer_size);
+        free(ciphertext);
+    }
+    if(plaintext != NULL) {
+        OPENSSL_cleanse(plaintext, params->pipe_buffer_size);
+        free(plaintext);
+    }
     OPENSSL_cleanse(&ciphertext_available, sizeof ciphertext_available);
     OPENSSL_cleanse(&plaintext_available, sizeof plaintext_available);
-
-    free(plaintext);
-    free(ciphertext);
 
     return result;
 }
@@ -722,19 +1007,26 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     const char *key_types[] = {"password", "dh"};
     main_enum key_type;
 
-    main_enum_init(&key_type, key_types, 2);
+    if(tag == NULL || iv == NULL || key_salt == NULL || key == NULL ||
+            password == NULL) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS) {
+        main_enum_init(&key_type, key_types, 2);
+    }
 
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "rb");
         if(ciphertext_file == NULL) {
-            result = main_error(params, 0,
+            result = main_error(params, 1,
                     "main_decrypt: nepavyko atidaryti šifrogramos failo");
         }
     }
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "wb");
         if(plaintext_file == NULL) {
-            result = main_error(params, 0,
+            result = main_error(params, 1,
                     "main_decrypt: nepavyko atidaryti tekstogramos failo");
         }
     }
@@ -753,19 +1045,21 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
             fread(key_salt, 1, params->key_salt_length, ciphertext_file);
             if(ferror(ciphertext_file)) {
                 result = main_error(params, 1,
-                        "main_read_key: nepavyko nuskaityti salt duomenų");
+                        "main_decrypt: nepavyko nuskaityti salt duomenų");
             }
         }
         if(result == EXIT_SUCCESS && PKCS5_PBKDF2_HMAC_SHA1(password,
-                    (int)strlen(password), key_salt, (int)params->key_salt_length,
-                    (int)params->pbkdf2_iterations, (int)key_length, key) != 1) {
+                    (int)strlen(password), key_salt,
+                    (int)params->key_salt_length,
+                    (int)params->pbkdf2_iterations,
+                    (int)key_length, key) != 1) {
             result = main_error(params, 1,
-                    "main_read_key: PKCS5_PBKDF2_HMAC_SHA1");
+                    "main_decrypt: PKCS5_PBKDF2_HMAC_SHA1");
         }
     }
     if(key_type.current_i == kt_dh) {
         if(result == EXIT_SUCCESS) {
-            result = main_error(params, 1, "main_read_key: funkcija dar"
+            result = main_error(params, 1, "main_decrypt: funkcija dar"
                     " neįgyvendinta");
         }
     }
@@ -828,18 +1122,28 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                     " (plaintext_file)");
         }
     }
-    OPENSSL_cleanse(tag, params->tag_length);
-    OPENSSL_cleanse(password, params->password_length + 1);
-    OPENSSL_cleanse(key, key_length);
-    OPENSSL_cleanse(iv, params->iv_length);
-    OPENSSL_cleanse(key_salt, params->key_salt_length);
+    if(tag != NULL) {
+        OPENSSL_cleanse(tag, params->tag_length);
+        free(tag);
+    }
+    if(password != NULL) {
+        OPENSSL_cleanse(password, params->password_length + 1);
+        free(password);
+    }
+    if(key != NULL) {
+        OPENSSL_cleanse(key, key_length);
+        free(key);
+    }
+    if(iv != NULL) {
+        OPENSSL_cleanse(iv, params->iv_length);
+        free(iv);
+    }
+    if(key_salt != NULL) {
+        OPENSSL_cleanse(key_salt, params->key_salt_length);
+        free(key_salt);
+    }
     OPENSSL_cleanse(&key_type, sizeof key_type);
     EVP_CIPHER_CTX_free(ctx);
-    free(tag);
-    free(password);
-    free(iv);
-    free(key);
-    free(key_salt);
 
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Iššifravimo operacija baigta vykdyti"

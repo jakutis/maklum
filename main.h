@@ -7,9 +7,11 @@
 #include <ctype.h>
 
 #include "openssl/evp.h"
+#include "openssl/err.h"
 #include "openssl/aes.h"
 #include "openssl/rand.h"
 #include "openssl/dh.h"
+#include "openssl/pem.h"
 
 typedef struct {
     size_t max;
@@ -22,6 +24,7 @@ typedef struct {
 void main_enum_init(main_enum *a, const char **all, size_t len);
 
 typedef struct {
+    size_t filename_length;
     FILE *in;
     FILE *out;
     size_t size_max;
@@ -41,17 +44,27 @@ typedef struct {
     const unsigned char* dh_prime;
 } main_params;
 
+int main_derive_key_dh(const char *private_key_filename,
+        const char *public_key_filename, unsigned char *key, size_t key_length);
+
+int main_generate_keys(main_params *params);
+
+int main_generate_and_write_dh_key(main_params *params, const char *filename,
+        EVP_PKEY *dh_params, int private);
+
+int main_read_filename(main_params *params, const char *message,
+        char *filename);
+
 size_t main_max(size_t a, size_t b);
 
 int main_read_key_type(main_params *params, main_enum *key_type);
 
 int main_read_enum(main_params *params, main_enum *a);
 
-int main_a(main_params *params);
+int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params);
 
-int main_fill_dh_params(main_params *params, EVP_PKEY *dh_params);
-
-int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params, EVP_PKEY **key);
+int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
+        EVP_PKEY **key);
 
 void main_digits(size_t n, size_t *d);
 
@@ -78,7 +91,8 @@ int main_aes(const unsigned char *in, unsigned char *out,
 
 int main_read_integer(main_params *params, size_t *integer);
 
-int main_read_yesno(main_params *params, const char *positive_response);
+int main_read_yesno(main_params *params, const char *positive_response,
+        int *yesno);
 
 int main_error(main_params *params, int type, const char *message);
 
