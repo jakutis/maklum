@@ -42,7 +42,7 @@ The C code must comply with the ISO/IEC 9899:1990, i.e. C89 or C90 or ANSI C.
 
     The MIT License (MIT)
 
-    Copyright (c) 2013 Vytautas Jakutis <vytautas@jakut.is>
+    Copyright (c) 2013-2014 Vytautas Jakutis <vytautas@jakut.is>
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of
     this software and associated documentation files (the "Software"), to deal in
