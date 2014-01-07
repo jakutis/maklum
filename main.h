@@ -2,11 +2,13 @@
 
 #define MAIN
 
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
 #include "openssl/evp.h"
+#include "openssl/rsa.h"
 #include "openssl/err.h"
 #include "openssl/aes.h"
 #include "openssl/rand.h"
@@ -52,6 +54,9 @@ typedef struct {
 int main_derive_key_dh(const char *private_key_filename,
         const char *public_key_filename, unsigned char *key, size_t key_length);
 
+int main_derive_key_rsa(int read, FILE *file, const char *key_filename,
+        unsigned char *key, size_t key_length);
+
 int main_generate_keys(main_params *params);
 
 int main_write_dh_key(main_params *params, const char *filename,
@@ -77,6 +82,10 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
 void main_digits(size_t n, size_t *d);
 
 int main_write_size_t(main_params *params, size_t size);
+
+int main_write_size_t_bin(FILE *out, size_t size);
+
+int main_read_size_t_bin(FILE *in, size_t *size);
 
 int main_string_to_integer(main_params *params, char *string, size_t *integer);
 

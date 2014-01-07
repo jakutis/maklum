@@ -614,6 +614,106 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     return result;
 }
 
+int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned char *key,
+        size_t key_length) {
+    BIO *bio = NULL;
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    int result = EXIT_SUCCESS;
+    unsigned char *encrypted_key = NULL;
+    size_t encrypted_key_length = 0;
+    size_t buffer_length = 0;
+
+    if(result == EXIT_SUCCESS &&
+            (bio = BIO_new_file(key_filename, "rb")) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(read) {
+        if(result == EXIT_SUCCESS &&
+                (pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)) ==
+                NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                (ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && EVP_PKEY_decrypt_init(ctx) != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING)
+                != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && (
+            main_read_size_t_bin(file, &encrypted_key_length) == EXIT_FAILURE ||
+            (encrypted_key = malloc(encrypted_key_length)) == NULL ||
+            fread(encrypted_key, 1, encrypted_key_length, file) <
+            encrypted_key_length
+        )) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                EVP_PKEY_decrypt(ctx, NULL, &buffer_length, encrypted_key,
+                    encrypted_key_length) != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && buffer_length != key_length) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && EVP_PKEY_decrypt(ctx, key, &key_length,
+                    encrypted_key, encrypted_key_length) != 1) {
+            result = EXIT_FAILURE;
+        }
+    } else {
+        if(result == EXIT_SUCCESS &&
+                (pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL)) == NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                (ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && EVP_PKEY_encrypt_init(ctx) != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING)
+                != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && RAND_bytes(key, (int)key_length) != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                EVP_PKEY_encrypt(ctx, NULL, &encrypted_key_length, key,
+                    key_length) != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                (encrypted_key = malloc(encrypted_key_length)) == NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                EVP_PKEY_encrypt(ctx, encrypted_key, &encrypted_key_length, key,
+                    key_length) != 1) {
+            result = EXIT_FAILURE;
+        }
+        printf("ENCRYPT %zu %zu", encrypted_key_length, key_length);
+        if(result == EXIT_SUCCESS && (
+                main_write_size_t_bin(file, encrypted_key_length) ==
+                EXIT_FAILURE ||
+                fwrite(encrypted_key, 1, encrypted_key_length, file) <
+                encrypted_key_length
+            )) {
+            result = EXIT_FAILURE;
+        }
+    }
+    BIO_free_all(bio);
+    return result;
+}
+
 int main_derive_key_dh(const char *private_key_filename,
         const char *public_key_filename, unsigned char *key,
         size_t key_length) {
@@ -764,6 +864,15 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             main_read_text(params, public_key_filename,
                     params->filename_length);
             result = main_derive_key_dh(private_key_filename,
+                    public_key_filename, key, key_length);
+        } else if(key_type.current_i == params->key_type_rsa) {
+            fprintf(params->out, "Suveskite kelią iki gavėjo viešojo rakto"
+                    " failo (maksimalus ilgis yra ");
+            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, public_key_filename,
+                    params->filename_length);
+            result = main_derive_key_rsa(0, ciphertext_file,
                     public_key_filename, key, key_length);
         } else if(key_type.current_i == params->key_type_password) {
             fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
@@ -966,6 +1075,55 @@ int main_write_size_t(main_params *params, size_t size) {
     return EXIT_FAILURE;
 }
 
+int main_read_size_t_bin(FILE *in, size_t *size) {
+    int result = EXIT_SUCCESS;
+    size_t buffer_length = 0;
+
+    if(result == EXIT_SUCCESS && fread(&buffer_length, 1, 1, in) < 1) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS && buffer_length > sizeof size) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS) {
+        *size = 0;
+        if(fread(size, 1, buffer_length, in) < 1) {
+            result = EXIT_FAILURE;
+        }
+    }
+
+    return result;
+}
+
+int main_write_size_t_bin(FILE *out, size_t size) {
+    int result = EXIT_SUCCESS;
+    size_t buffer_length = sizeof size;
+    size_t mask = ((size_t)UCHAR_MAX) << ((buffer_length - 1) * CHAR_BIT);
+
+    if(result == EXIT_SUCCESS) {
+        while(!(mask & size)) {
+            buffer_length -= 1;
+            mask >>= CHAR_BIT;
+        }
+        if(buffer_length > UCHAR_MAX) {
+            result = EXIT_FAILURE;
+        }
+    }
+
+    if(result == EXIT_SUCCESS && fwrite(&buffer_length, 1, 1, out) < 1) {
+        result = EXIT_FAILURE;
+    }
+
+    if(result == EXIT_SUCCESS && fwrite(&size, 1, buffer_length, out) <
+            buffer_length) {
+        result = EXIT_FAILURE;
+    }
+
+    return result;
+}
+
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out) {
     int result = EXIT_SUCCESS;
@@ -1126,8 +1284,18 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
             result = main_error(params, 1,
                     "main_decrypt: PKCS5_PBKDF2_HMAC_SHA1");
         }
-    }
-    if(key_type.current_i == params->key_type_dh) {
+    } else if(key_type.current_i == params->key_type_rsa) {
+        if(result == EXIT_SUCCESS) {
+            fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
+                    " failo (maksimalus ilgis yra ");
+            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, private_key_filename,
+                    params->filename_length);
+            result = main_derive_key_rsa(1, ciphertext_file,
+                    private_key_filename, key, key_length);
+        }
+    } else if(key_type.current_i == params->key_type_dh) {
         if(result == EXIT_SUCCESS) {
             fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                     " failo (maksimalus ilgis yra ");
@@ -1144,6 +1312,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
             result = main_derive_key_dh(private_key_filename,
                     public_key_filename, key, key_length);
         }
+    } else {
+        result = main_error(params, 1, "main_decrypt: unimplemented key_type");
     }
     if(result == EXIT_SUCCESS) {
         fread(iv, 1, params->iv_length, ciphertext_file);
