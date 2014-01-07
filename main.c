@@ -789,9 +789,9 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             result = main_error(params, 1,
                     "main_encrypt: EVP_EncryptInit_ex (key, iv)");
         }
-        if(result == EXIT_SUCCESS && fwrite(key_salt, 1,
-                    params->key_salt_length, ciphertext_file) <
-                params->key_salt_length) {
+        if(result == EXIT_SUCCESS && key_type.current_i == kt_password
+                && fwrite(key_salt, 1, params->key_salt_length,
+                    ciphertext_file) < params->key_salt_length) {
             result = main_error(params, 1,
                     "main_encrypt: fwrite (key_salt)");
         }
