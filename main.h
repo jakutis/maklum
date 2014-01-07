@@ -21,7 +21,7 @@ typedef struct {
     size_t current_i;
 } main_enum;
 
-void main_enum_init(main_enum *a, const char **all, size_t len);
+void main_enum_init(main_enum *a, const char **all);
 
 typedef struct {
     size_t filename_length;
@@ -42,6 +42,10 @@ typedef struct {
     const unsigned char* dh_generator;
     size_t dh_prime_length;
     const unsigned char* dh_prime;
+    const char **key_types;
+    size_t key_type_dh;
+    size_t key_type_rsa;
+    size_t key_type_password;
 } main_params;
 
 int main_derive_key_dh(const char *private_key_filename,

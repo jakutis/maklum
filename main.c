@@ -1,6 +1,7 @@
 #include "main.h"
 
 int main(int argc, const char **argv) {
+    int result = EXIT_SUCCESS;
     size_t size_t_bytes = sizeof (size_t);
     main_params params;
 
@@ -70,6 +71,14 @@ int main(int argc, const char **argv) {
     params.dh_generator = g;
     params.dh_prime = p;
     params.size_max = (size_t) - 1;
+    params.key_type_password = 0;
+    params.key_type_dh = 1;
+    params.key_type_rsa = 2;
+    params.key_types = malloc(4 * sizeof(char*));
+    params.key_types[params.key_type_password] = "password";
+    params.key_types[params.key_type_dh] = "dh";
+    params.key_types[params.key_type_rsa] = "rsa";
+    params.key_types[3] = NULL;
 
     if(sizeof (short int) == size_t_bytes) {
         params.size_t_format = "%hu";
@@ -80,36 +89,39 @@ int main(int argc, const char **argv) {
     }
 
     if(argc < 2) {
-        return main_error(&params, 0,
+        result = main_error(&params, 0,
                 "main: nepateiktas operacijos pavadinimas");
-    }
-    if(strcmp(argv[1], "uzsifruoti") == 0) {
+    } else if(strcmp(argv[1], "uzsifruoti") == 0) {
         if(argc == 2) {
-            return main_error(&params, 0,
+            result = main_error(&params, 0,
                     "main: nepateiktas tekstogramos failo vardas");
-        }
-        if(argc == 3) {
-            return main_error(&params, 0,
+        } else if(argc == 3) {
+            result = main_error(&params, 0,
                     "main: nepateiktas šifrogramos failo vardas");
+        } else {
+            result = main_encrypt(&params, argv[2], argv[3]);
         }
-        return main_encrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "issifruoti") == 0) {
         if(argc == 2) {
-            return main_error(&params, 0,
+            result = main_error(&params, 0,
                     "main: nepateiktas šifrogramos failo vardas");
-        }
-        if(argc == 3) {
-            return main_error(&params, 0,
+        } else if(argc == 3) {
+            result = main_error(&params, 0,
                     "main: nepateiktas tekstogramos failo vardas");
+        } else {
+            result = main_decrypt(&params, argv[2], argv[3]);
         }
-        return main_decrypt(&params, argv[2], argv[3]);
     } else if(strcmp(argv[1], "sukurtiraktus") == 0) {
-        return main_generate_keys(&params);
+        result = main_generate_keys(&params);
     } else {
-        return main_error(&params, 0, "main: neatpažintas operacijos"
+        result = main_error(&params, 0, "main: neatpažintas operacijos"
                 " pavadinimas (turi būti vienas iš: \"uzsifruoti\","
                 " \"issifruoti\", \"sukurtiraktus\")");
     }
+
+    free(params.key_types);
+
+    return result;
 }
 
 int main_read_filename(main_params *params, const char *message,
@@ -152,6 +164,11 @@ int main_generate_keys(main_params *params) {
     char *private_key_filename = NULL, *public_key_filename = NULL;
     EVP_PKEY *dh_params = NULL;
     EVP_PKEY *key = NULL;
+    main_enum key_type;
+
+    if(result == EXIT_SUCCESS) {
+        main_enum_init(&key_type, params->key_types);
+    }
 
     if(result == EXIT_SUCCESS && (private_key_filename =
                 malloc(params->filename_length + 1)) == NULL) {
@@ -162,6 +179,10 @@ int main_generate_keys(main_params *params) {
                 malloc(params->filename_length + 1)) == NULL) {
         result = main_error(params, 1, "main_generate_keys: malloc"
                 " (public_key_filename)");
+    }
+
+    if(result == EXIT_SUCCESS) {
+        result = main_read_key_type(params, &key_type);
     }
 
     if(result == EXIT_SUCCESS && main_read_filename(params,
@@ -178,24 +199,30 @@ int main_generate_keys(main_params *params) {
     }
 
     if(result == EXIT_SUCCESS && params->debug) {
-        fprintf(params->out, "public = %s, private = %s\n", public_key_filename,
-                private_key_filename);
+        fprintf(params->out, "type = %s, public = %s, private = %s\n",
+                key_type.current, public_key_filename, private_key_filename);
     }
 
-    if(result == EXIT_SUCCESS &&
-            main_fill_dh_params(params, &dh_params) != EXIT_SUCCESS) {
-        result = main_error(params, 1,
-                "main_generate_keys: main_fill_dh_params");
-    }
+    if(key_type.current_i == params->key_type_dh) {
+        if(result == EXIT_SUCCESS &&
+                main_fill_dh_params(params, &dh_params) != EXIT_SUCCESS) {
+            result = main_error(params, 1,
+                    "main_generate_keys: main_fill_dh_params");
+        }
 
-    if(result == EXIT_SUCCESS && params->debug) {
-        fprintf(params->out, "main_generate_keys: DH params read.\n");
-    }
+        if(result == EXIT_SUCCESS && params->debug) {
+            fprintf(params->out, "main_generate_keys: DH params read.\n");
+        }
 
-    if(result == EXIT_SUCCESS && main_generate_dh_key(params, dh_params, &key)
-            != EXIT_SUCCESS) {
-        result = main_error(params, 1,
-                "main_write_dh_key: main_generate_dh_key");
+        if(result == EXIT_SUCCESS && main_generate_dh_key(params, dh_params, &key)
+                != EXIT_SUCCESS) {
+            result = main_error(params, 1,
+                    "main_write_dh_key: main_generate_dh_key");
+        }
+    } else {
+        if(result == EXIT_SUCCESS) {
+            result = main_error(params, 1, "main_generate_keys: unimplemented");
+        }
     }
 
     if(result == EXIT_SUCCESS && main_write_dh_key(params,
@@ -232,14 +259,15 @@ int main_generate_keys(main_params *params) {
     return result;
 }
 
-void main_enum_init(main_enum *a, const char **all, size_t len) {
+void main_enum_init(main_enum *a, const char **all) {
     size_t i;
 
     a->all = all;
-    a->len = len;
+    a->len = 0;
     a->max = 0;
-    for(i = 0; i < len; i += 1) {
+    for(i = 0; all[i] != NULL; i += 1) {
         a->max = main_max(strlen(all[i]), a->max);
+        a->len += 1;
     }
     a->current = NULL;
     a->current_i = 0;
@@ -640,8 +668,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     char *password = malloc(params->password_length + 1);
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     fpos_t tag_pos;
-    size_t kt_password = 0, kt_dh = 1;
-    const char *key_types[] = {"password", "dh"};
     main_enum key_type;
     int confirm = 0;
 
@@ -659,7 +685,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     }
 
     if(result == EXIT_SUCCESS) {
-        main_enum_init(&key_type, key_types, 2);
+        main_enum_init(&key_type, params->key_types);
     }
 
     if(result == EXIT_SUCCESS) {
@@ -680,7 +706,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         result = main_read_key_type(params, &key_type);
     }
     if(result == EXIT_SUCCESS) {
-        if(key_type.current_i == kt_dh) {
+        if(key_type.current_i == params->key_type_dh) {
             fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                     " failo (maksimalus ilgis yra ");
             main_write_size_t(params, params->filename_length);
@@ -696,7 +722,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             result = main_derive_key_dh(private_key_filename,
                     public_key_filename, key, key_length);
         }
-        if(key_type.current_i == kt_password) {
+        if(key_type.current_i == params->key_type_password) {
             fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
                     " ilgis yra ");
             main_write_size_t(params, params->password_length);
@@ -789,9 +815,10 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             result = main_error(params, 1,
                     "main_encrypt: EVP_EncryptInit_ex (key, iv)");
         }
-        if(result == EXIT_SUCCESS && key_type.current_i == kt_password
-                && fwrite(key_salt, 1, params->key_salt_length,
-                    ciphertext_file) < params->key_salt_length) {
+        if(result == EXIT_SUCCESS &&
+                key_type.current_i == params->key_type_password &&
+                fwrite(key_salt, 1, params->key_salt_length, ciphertext_file) <
+                params->key_salt_length) {
             result = main_error(params, 1,
                     "main_encrypt: fwrite (key_salt)");
         }
@@ -1002,8 +1029,6 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     size_t key_length = 32;
     unsigned char *key = malloc(key_length);
     char *password = malloc(params->password_length + 1);
-    size_t kt_password = 0, kt_dh = 1;
-    const char *key_types[] = {"password", "dh"};
     main_enum key_type;
 
     if(tag == NULL || iv == NULL || key_salt == NULL || key == NULL ||
@@ -1012,7 +1037,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     }
 
     if(result == EXIT_SUCCESS) {
-        main_enum_init(&key_type, key_types, 2);
+        main_enum_init(&key_type, params->key_types);
     }
 
     if(result == EXIT_SUCCESS) {
@@ -1032,7 +1057,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     if(result == EXIT_SUCCESS) {
         result = main_read_key_type(params, &key_type);
     }
-    if(key_type.current_i == kt_password) {
+    if(key_type.current_i == params->key_type_password) {
         if(result == EXIT_SUCCESS) {
             fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus"
                     " ilgis yra ");
@@ -1056,7 +1081,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                     "main_decrypt: PKCS5_PBKDF2_HMAC_SHA1");
         }
     }
-    if(key_type.current_i == kt_dh) {
+    if(key_type.current_i == params->key_type_dh) {
         if(result == EXIT_SUCCESS) {
             fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                     " failo (maksimalus ilgis yra ");

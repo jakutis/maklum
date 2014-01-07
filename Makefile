@@ -2,7 +2,7 @@ main: main.c
 	clang -fshow-column -fshow-source-location -fcaret-diagnostics -fdiagnostics-format=clang -fdiagnostics-show-option -fdiagnostics-show-category=name -fdiagnostics-fixit-info -std=c89 -fcolor-diagnostics -pedantic -pedantic-errors -Werror -Weverything -Wno-format-nonliteral -lcrypto -o main main.c
 
 .PHONY:
-test: test-password test-dh
+test: test-password test-dh-key
 
 .PHONY:
 test-password: main
@@ -10,11 +10,17 @@ test-password: main
 	echo -e 'password\nraktas\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'password\nraktas' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
 
 .PHONY:
-test-dh: main
-	echo "----- Testing encryption with dh -----"
-	echo -e 'a_private.pem\na_public.pem' | ./main sukurtiraktus
-	echo -e 'b_private.pem\nb_public.pem' | ./main sukurtiraktus
+test-dh-key: main
+	echo "----- Testing encryption with dh key exchange -----"
+	echo -e 'dh\na_private.pem\na_public.pem' | ./main sukurtiraktus
+	echo -e 'dh\nb_private.pem\nb_public.pem' | ./main sukurtiraktus
 	echo -e 'dh\na_private.pem\nb_public.pem\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'dh\nb_private.pem\na_public.pem' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
+
+.PHONY:
+test-rsa-key: main
+	echo "----- Testing encryption with rsa key exchange -----"
+	echo -e 'rsa\nb_private.pem\nb_public.pem' | ./main sukurtiraktus
+	echo -e 'rsa\nb_public.pem\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'rsa\nb_private.pem' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
 
 .PHONY:
 clean:
