@@ -573,7 +573,7 @@ int main_derive_key_dh(const char *private_key_filename,
     }
     if(result == EXIT_SUCCESS &&
             (peerkey =
-             PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)) == NULL) {
+             PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL)) == NULL) {
         result = EXIT_FAILURE;
     }
     BIO_free_all(bio);
