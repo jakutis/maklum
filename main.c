@@ -60,6 +60,7 @@ int main(int argc, const char **argv) {
     params.tag_length = 16;
     params.in = stdin;
     params.out = stdout;
+    params.rsa_key_length_bits = 4096;
     params.password_length = 50;
     params.pbkdf2_iterations = 16384;
     params.pipe_buffer_size = 100000;
@@ -214,14 +215,16 @@ int main_generate_keys(main_params *params) {
             fprintf(params->out, "main_generate_keys: DH params read.\n");
         }
 
-        if(result == EXIT_SUCCESS && main_generate_dh_key(params, dh_params, &key)
-                != EXIT_SUCCESS) {
+        if(result == EXIT_SUCCESS &&
+                main_generate_dh_key(params, dh_params, &key) != EXIT_SUCCESS) {
             result = main_error(params, 1,
-                    "main_write_dh_key: main_generate_dh_key");
+                    "main_generate_keys: main_generate_dh_key");
         }
     } else {
-        if(result == EXIT_SUCCESS) {
-            result = main_error(params, 1, "main_generate_keys: unimplemented");
+        if(result == EXIT_SUCCESS && main_generate_rsa_key(params,
+                    params->rsa_key_length_bits, &key) != EXIT_SUCCESS) {
+            result = main_error(params, 1,
+                    "main_generate_keys: main_generate_rsa_key");
         }
     }
 
@@ -303,6 +306,47 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "main_generate_dh_key: keygen finished.\n");
+    }
+
+    EVP_PKEY_CTX_free(ctx);
+    return result;
+}
+
+int main_generate_rsa_key(main_params *params, size_t key_length_bits,
+        EVP_PKEY **key) {
+    int result = EXIT_SUCCESS;
+    int status = 0;
+    EVP_PKEY_CTX *ctx = NULL;
+
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_rsa_key: entry.\n");
+    }
+    if(result == EXIT_SUCCESS &&
+            (ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL)) == NULL) {
+        result = main_error(params, 1,
+                "main_generate_rsa_key: EVP_PKEY_CTX_new_id");
+    }
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_rsa_key: context created.\n");
+    }
+    if(result == EXIT_SUCCESS && EVP_PKEY_keygen_init(ctx) != 1) {
+        result = main_error(params, 1,
+                "main_generate_rsa_key: EVP_PKEY_keygen_init");
+    }
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_rsa_key: keygen initialized.\n");
+    }
+    if(result == EXIT_SUCCESS &&
+            EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, (int)key_length_bits) != 1) {
+        result = main_error(params, 1,
+                "main_generate_rsa_key: EVP_PKEY_CTX_set_rsa_keygen_bits");
+    }
+    if(result == EXIT_SUCCESS && (status = EVP_PKEY_keygen(ctx, key)) != 1) {
+        result = main_error(params, 1,
+                "main_generate_rsa_key: EVP_PKEY_keygen");
+    }
+    if(result == EXIT_SUCCESS && params->debug) {
+        fprintf(params->out, "main_generate_rsa_key: keygen finished.\n");
     }
 
     EVP_PKEY_CTX_free(ctx);
@@ -721,8 +765,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     params->filename_length);
             result = main_derive_key_dh(private_key_filename,
                     public_key_filename, key, key_length);
-        }
-        if(key_type.current_i == params->key_type_password) {
+        } else if(key_type.current_i == params->key_type_password) {
             fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
                     " ilgis yra ");
             main_write_size_t(params, params->password_length);
@@ -741,6 +784,9 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                 result = main_error(params, 1,
                         "main_encrypt: PKCS4_PBKDF2_HMAC_SHA1");
             }
+        } else {
+            result = main_error(params, 1,
+                    "main_encrypt: unimplemented key_type");
         }
     }
     if(result == EXIT_SUCCESS) {

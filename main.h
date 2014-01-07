@@ -29,6 +29,7 @@ typedef struct {
     FILE *out;
     size_t size_max;
     size_t debug;
+    size_t rsa_key_length_bits;
     size_t password_length;
     size_t pbkdf2_iterations;
     size_t pipe_buffer_size;
@@ -66,6 +67,9 @@ int main_read_key_type(main_params *params, main_enum *key_type);
 int main_read_enum(main_params *params, main_enum *a);
 
 int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params);
+
+int main_generate_rsa_key(main_params *params, size_t key_length_bits,
+        EVP_PKEY **key);
 
 int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
         EVP_PKEY **key);
