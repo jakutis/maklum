@@ -1,19 +1,20 @@
-.PHONY:
-encrypt: main
-	echo
-	echo -e 'raktas\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted)
-
-.PHONY:
-decrypt: main
-	echo
-	echo -e 'raktas' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted)
-
-.PHONY:
-test: main
-	make encrypt && make decrypt && diff -ru main.c main.c.decrypted
-
 main: main.c
 	clang -fshow-column -fshow-source-location -fcaret-diagnostics -fdiagnostics-format=clang -fdiagnostics-show-option -fdiagnostics-show-category=name -fdiagnostics-fixit-info -std=c89 -fcolor-diagnostics -pedantic -pedantic-errors -Werror -Weverything -Wno-format-nonliteral -lcrypto -o main main.c
+
+.PHONY:
+test: test-password test-dh
+
+.PHONY:
+test-password: main
+	echo "----- Testing encryption with password -----"
+	echo -e 'password\nraktas\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'password\nraktas' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
+
+.PHONY:
+test-dh: main
+	echo "----- Testing encryption with dh -----"
+	echo -e 'a_private.pem\na_public.pem' | ./main sukurtiraktus
+	echo -e 'b_private.pem\nb_public.pem' | ./main sukurtiraktus
+	echo -e 'dh\na_private.pem\nb_public.pem\ntaip' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'dh\nb_private.pem\na_public.pem' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
 
 .PHONY:
 clean:
