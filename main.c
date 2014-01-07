@@ -994,7 +994,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-
+    char *public_key_filename = malloc(params->filename_length + 1);
+    char *private_key_filename = malloc(params->filename_length + 1);
     unsigned char *tag = malloc(params->tag_length);
     unsigned char *iv = malloc(params->iv_length);
     unsigned char *key_salt = malloc(params->key_salt_length);
@@ -1057,8 +1058,20 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     }
     if(key_type.current_i == kt_dh) {
         if(result == EXIT_SUCCESS) {
-            result = main_error(params, 1, "main_decrypt: funkcija dar"
-                    " neįgyvendinta");
+            fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
+                    " failo (maksimalus ilgis yra ");
+            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, private_key_filename,
+                    params->filename_length);
+            fprintf(params->out, "Suveskite kelią iki gavėjo viešojo rakto"
+                    " failo (maksimalus ilgis yra ");
+            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, "): ");
+            main_read_text(params, public_key_filename,
+                    params->filename_length);
+            result = main_derive_key_dh(private_key_filename,
+                    public_key_filename, key, key_length);
         }
     }
     if(result == EXIT_SUCCESS) {
@@ -1139,6 +1152,14 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     if(key_salt != NULL) {
         OPENSSL_cleanse(key_salt, params->key_salt_length);
         free(key_salt);
+    }
+    if(private_key_filename != NULL) {
+        OPENSSL_cleanse(private_key_filename, params->password_length + 1);
+        free(private_key_filename);
+    }
+    if(public_key_filename != NULL) {
+        OPENSSL_cleanse(public_key_filename, params->password_length + 1);
+        free(public_key_filename);
     }
     OPENSSL_cleanse(&key_type, sizeof key_type);
     EVP_CIPHER_CTX_free(ctx);
