@@ -7,3 +7,7 @@
 /cscope.in.out
 /cscope.files
 /.ycm_extra_conf.pyc
+/a_private.pem
+/a_public.pem
+/b_private.pem
+/b_public.pem
