@@ -49,7 +49,7 @@ int main_derive_key_dh(const char *private_key_filename,
 
 int main_generate_keys(main_params *params);
 
-int main_generate_and_write_dh_key(main_params *params, const char *filename,
+int main_write_dh_key(main_params *params, const char *filename,
         EVP_PKEY *dh_params, int private);
 
 int main_read_filename(main_params *params, const char *message,

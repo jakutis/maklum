@@ -124,23 +124,14 @@ int main_read_filename(main_params *params, const char *message,
     return result;
 }
 
-int main_generate_and_write_dh_key(main_params *params, const char *filename,
-        EVP_PKEY *dh_params, int private) {
+int main_write_dh_key(main_params *params, const char *filename,
+        EVP_PKEY *key, int private) {
     int result = EXIT_SUCCESS;
-    EVP_PKEY *key = NULL;
     BIO *bio = NULL;
 
-    if(result == EXIT_SUCCESS && main_generate_dh_key(params, dh_params, &key)
-            != EXIT_SUCCESS) {
-        result = main_error(params, 1,
-                "main_generate_and_write_dh_key: main_generate_dh_key");
-    }
-    if(result == EXIT_SUCCESS && params->debug) {
-        fprintf(params->out, "private key generated.\n");
-    }
     if(result == EXIT_SUCCESS && (bio = BIO_new_file(filename, "wb")) == NULL) {
         result = main_error(params, 1,
-                "main_generate_and_write_dh_key: BIO_new_file");
+                "main_write_dh_key: BIO_new_file");
     }
     if(result == EXIT_SUCCESS && (
                 private ?
@@ -149,10 +140,9 @@ int main_generate_and_write_dh_key(main_params *params, const char *filename,
                 PEM_write_bio_PUBKEY(bio, key)
                 ) != 1) {
         result = main_error(params, 1,
-                "main_generate_and_write_dh_key: PEM_write_bio_...");
+                "main_write_dh_key: PEM_write_bio_...");
     }
     BIO_free_all(bio);
-    EVP_PKEY_free(key);
 
     return result;
 }
@@ -161,6 +151,7 @@ int main_generate_keys(main_params *params) {
     int result = EXIT_SUCCESS;
     char *private_key_filename = NULL, *public_key_filename = NULL;
     EVP_PKEY *dh_params = NULL;
+    EVP_PKEY *key = NULL;
 
     if(result == EXIT_SUCCESS && (private_key_filename =
                 malloc(params->filename_length + 1)) == NULL) {
@@ -201,10 +192,16 @@ int main_generate_keys(main_params *params) {
         fprintf(params->out, "main_generate_keys: DH params read.\n");
     }
 
-    if(result == EXIT_SUCCESS && main_generate_and_write_dh_key(params,
-                private_key_filename, dh_params, 1) != EXIT_SUCCESS) {
+    if(result == EXIT_SUCCESS && main_generate_dh_key(params, dh_params, &key)
+            != EXIT_SUCCESS) {
         result = main_error(params, 1,
-                "main_generate_keys: main_generate_and_write_dh_key (private)");
+                "main_write_dh_key: main_generate_dh_key");
+    }
+
+    if(result == EXIT_SUCCESS && main_write_dh_key(params,
+                private_key_filename, key, 1) != EXIT_SUCCESS) {
+        result = main_error(params, 1,
+                "main_generate_keys: main_write_dh_key (private)");
     }
     if(private_key_filename != NULL) {
         OPENSSL_cleanse(private_key_filename, params->filename_length + 1);
@@ -215,10 +212,10 @@ int main_generate_keys(main_params *params) {
         fprintf(params->out, "private key written.\n");
     }
 
-    if(result == EXIT_SUCCESS && main_generate_and_write_dh_key(params,
-                public_key_filename, dh_params, 0) != EXIT_SUCCESS) {
+    if(result == EXIT_SUCCESS && main_write_dh_key(params,
+                public_key_filename, key, 0) != EXIT_SUCCESS) {
         result = main_error(params, 1,
-                "main_generate_keys: main_generate_and_write_dh_key (public)");
+                "main_generate_keys: main_write_dh_key (public)");
     }
     if(public_key_filename != NULL) {
         OPENSSL_cleanse(public_key_filename, params->filename_length + 1);
@@ -229,6 +226,7 @@ int main_generate_keys(main_params *params) {
         fprintf(params->out, "public key written.\n");
     }
 
+    EVP_PKEY_free(key);
     EVP_PKEY_free(dh_params);
 
     return result;
