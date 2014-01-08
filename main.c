@@ -882,6 +882,7 @@ int main_derive_key_dh(const char *private_key_filename,
 int main_encrypt(main_params *params, const char *plaintext_filename,
         const char *ciphertext_filename) {
     int result = EXIT_SUCCESS;
+    char *sign_key_filename = malloc(params->filename_length + 1);
     char *public_key_filename = malloc(params->filename_length + 1);
     char *private_key_filename = malloc(params->filename_length + 1);
     unsigned char *tag = malloc(params->tag_length);
@@ -893,7 +894,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     fpos_t tag_pos;
     main_enum key_type;
-    int confirm = 0;
+    int sign = 0;
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
 
@@ -976,19 +977,25 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         }
     }
     if(result == EXIT_SUCCESS) {
-
-        fprintf(params->out, "Ačiū! Sistema pasiruošusi šifravimo operacijai"
-                " su tokiais parametrais:\n");
-        fprintf(params->out, "Tekstogramos failas: %s\n", plaintext_filename);
-        fprintf(params->out, "Šifrogramos failas: %s\n", ciphertext_filename);
-        fprintf(params->out, "Ar pradėti operaciją (taip/ne)? ");
-        if(main_read_yesno(params, "taip", &confirm) != EXIT_SUCCESS) {
-            result = main_error(params, 1, "main_encrypt: main_read_yesno");
+        fprintf(params->out, "Ar norėsite pasirašyti RSA parašu (taip/ne)? ");
+        if(main_read_yesno(params, "taip", &sign) != EXIT_SUCCESS) {
+            result = main_error(params, 1,
+                    "main_encrypt: main_read_yesno (sign)");
         }
     }
-    if(result == EXIT_SUCCESS && confirm) {
-        fprintf(params->out, "Operacija vykdoma, prašome palaukti\n");
-
+    if(result == EXIT_SUCCESS && sign) {
+        fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
+                " failo (maksimalus ilgis yra ");
+        main_write_size_t(params, params->filename_length);
+        fprintf(params->out, "): ");
+        main_read_text(params, sign_key_filename,
+                params->filename_length);
+    }
+    if(result == EXIT_SUCCESS && sign) {
+        result = main_error(params, 1, "main_encrypt: sign is not implemented");
+    }
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Operacija vykdoma, prašome palaukti.\n");
         /*
          * 2010 - Niels Ferguson, Bruce Schneier, Tadayoshi Kohno -
          * Cryptography Engineering - Design Principles and Practical
@@ -1094,7 +1101,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             fprintf(params->out, ".\n");
         }
     }
-    if(result == EXIT_SUCCESS && confirm) {
+    if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Užšifravimo operacija baigta vykdyti"
                 " sėkmingai\n");
     }
@@ -1109,6 +1116,11 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         free(public_key_filename);
     }
     OPENSSL_cleanse(&public_key_filename, sizeof public_key_filename);
+    if(sign_key_filename != NULL) {
+        OPENSSL_cleanse(sign_key_filename, params->password_length + 1);
+        free(sign_key_filename);
+    }
+    OPENSSL_cleanse(&sign_key_filename, sizeof sign_key_filename);
     if(tag != NULL) {
         OPENSSL_cleanse(tag, params->tag_length);
         free(tag);
@@ -1136,7 +1148,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     }
     OPENSSL_cleanse(&key, sizeof key);
     OPENSSL_cleanse(&tag_pos, sizeof tag_pos);
-    OPENSSL_cleanse(&confirm, sizeof confirm);
     OPENSSL_cleanse(&key_type, sizeof key_type);
     EVP_CIPHER_CTX_free(ctx);
     OPENSSL_cleanse(&ctx, sizeof ctx);
@@ -1157,6 +1168,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     OPENSSL_cleanse(&params, sizeof params);
     OPENSSL_cleanse(&plaintext_filename, sizeof plaintext_filename);
     OPENSSL_cleanse(&ciphertext_filename, sizeof ciphertext_filename);
+    OPENSSL_cleanse(&sign, sizeof sign);
     return result;
 }
 
