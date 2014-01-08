@@ -121,6 +121,7 @@ int main(int argc, char **argv) {
     for(i = 0; i < argc; i += 1) {
         OPENSSL_cleanse(argv[i], strlen(argv[i]) + 1);
     }
+    OPENSSL_cleanse(&i, sizeof i);
     OPENSSL_cleanse(argv, (size_t)(argc) * sizeof argv);
     OPENSSL_cleanse(&argv, sizeof argv);
     OPENSSL_cleanse(&argc, sizeof argc);
