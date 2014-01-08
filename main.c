@@ -623,6 +623,7 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
     unsigned char *encrypted_key = NULL;
     size_t encrypted_key_length = 0;
     size_t buffer_length = 0;
+    unsigned char *buffer = NULL;
 
     if(result == EXIT_SUCCESS &&
             (bio = BIO_new_file(key_filename, "rb")) == NULL) {
@@ -659,13 +660,17 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
                     encrypted_key_length) != 1) {
             result = EXIT_FAILURE;
         }
-        if(result == EXIT_SUCCESS && buffer_length != key_length) {
+        if(result == EXIT_SUCCESS && (buffer = malloc(buffer_length)) == NULL) {
             result = EXIT_FAILURE;
         }
-        if(result == EXIT_SUCCESS && EVP_PKEY_decrypt(ctx, key, &key_length,
+        if(result == EXIT_SUCCESS && EVP_PKEY_decrypt(ctx, buffer, &buffer_length,
                     encrypted_key, encrypted_key_length) != 1) {
             result = EXIT_FAILURE;
         }
+        if(result == EXIT_SUCCESS && buffer_length != key_length) {
+            result = EXIT_FAILURE;
+        }
+        memcpy(key, buffer, key_length);
     } else {
         if(result == EXIT_SUCCESS &&
                 (pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL)) == NULL) {
@@ -700,7 +705,6 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
                     key_length) != 1) {
             result = EXIT_FAILURE;
         }
-        printf("ENCRYPT %zu %zu", encrypted_key_length, key_length);
         if(result == EXIT_SUCCESS && (
                 main_write_size_t_bin(file, encrypted_key_length) ==
                 EXIT_FAILURE ||
@@ -709,6 +713,10 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
             )) {
             result = EXIT_FAILURE;
         }
+    }
+    if(buffer != NULL) {
+        OPENSSL_cleanse(buffer, buffer_length);
+        free(buffer);
     }
     BIO_free_all(bio);
     return result;
