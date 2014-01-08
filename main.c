@@ -1,10 +1,10 @@
 #include "main.h"
 
-int main(int argc, const char **argv) {
+int main(int argc, char **argv) {
     int result = EXIT_SUCCESS;
+    int i = 0;
     size_t size_t_bytes = sizeof (size_t);
     main_params params;
-
     /* These two arrays are taken from RFC 5114. */
     unsigned char p[] = {
 0x87, 0xA8, 0xE6, 0x1D, 0xB4, 0xB6, 0x66, 0x3C, 0xFF, 0xBB, 0xD1, 0x9C,
@@ -80,7 +80,6 @@ int main(int argc, const char **argv) {
     params.key_types[params.key_type_dh] = "dh";
     params.key_types[params.key_type_rsa] = "rsa";
     params.key_types[3] = NULL;
-
     if(sizeof (short int) == size_t_bytes) {
         params.size_t_format = "%hu";
     } else if(sizeof (int) == size_t_bytes) {
@@ -88,7 +87,6 @@ int main(int argc, const char **argv) {
     } else if(sizeof (long int) == size_t_bytes) {
         params.size_t_format = "%lu";
     }
-
     if(argc < 2) {
         result = main_error(&params, 0,
                 "main: nepateiktas operacijos pavadinimas");
@@ -120,8 +118,17 @@ int main(int argc, const char **argv) {
                 " \"issifruoti\", \"sukurtiraktus\")");
     }
 
+    for(i = 0; i < argc; i += 1) {
+        OPENSSL_cleanse(argv[i], strlen(argv[i]) + 1);
+    }
+    OPENSSL_cleanse(argv, (size_t)(argc) * sizeof argv);
+    OPENSSL_cleanse(&argv, sizeof argv);
+    OPENSSL_cleanse(&argc, sizeof argc);
+    OPENSSL_cleanse(&g, sizeof g);
+    OPENSSL_cleanse(&p, sizeof p);
+    OPENSSL_cleanse(&size_t_bytes, sizeof size_t_bytes);
     free(params.key_types);
-
+    OPENSSL_cleanse(&params, sizeof params);
     return result;
 }
 
@@ -134,6 +141,9 @@ int main_read_filename(main_params *params, const char *message,
     fprintf(params->out, "): ");
     main_read_text(params, filename, params->filename_length);
 
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&message, sizeof message);
+    OPENSSL_cleanse(&filename, sizeof filename);
     return result;
 }
 
@@ -155,8 +165,13 @@ int main_write_dh_key(main_params *params, const char *filename,
         result = main_error(params, 1,
                 "main_write_dh_key: PEM_write_bio_...");
     }
-    BIO_free_all(bio);
 
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&filename, sizeof filename);
+    OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&private, sizeof private);
+    BIO_free_all(bio);
+    OPENSSL_cleanse(&bio, sizeof bio);
     return result;
 }
 
@@ -170,7 +185,6 @@ int main_generate_keys(main_params *params) {
     if(result == EXIT_SUCCESS) {
         main_enum_init(&key_type, params->key_types);
     }
-
     if(result == EXIT_SUCCESS && (private_key_filename =
                 malloc(params->filename_length + 1)) == NULL) {
         result = main_error(params, 1, "main_generate_keys: malloc"
@@ -181,11 +195,9 @@ int main_generate_keys(main_params *params) {
         result = main_error(params, 1, "main_generate_keys: malloc"
                 " (public_key_filename)");
     }
-
     if(result == EXIT_SUCCESS) {
         result = main_read_key_type(params, &key_type);
     }
-
     if(result == EXIT_SUCCESS && main_read_filename(params,
                 "Suveskite failo kelią kuriame norite išsaugoti savo privatųjį"
                 " raktą", private_key_filename) != EXIT_SUCCESS) {
@@ -198,12 +210,10 @@ int main_generate_keys(main_params *params) {
         result = main_error(params, 1,
                 "main_generate_keys: main_read_filename (public)");
     }
-
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "type = %s, public = %s, private = %s\n",
                 key_type.current, public_key_filename, private_key_filename);
     }
-
     if(key_type.current_i == params->key_type_dh) {
         if(result == EXIT_SUCCESS &&
                 main_fill_dh_params(params, &dh_params) != EXIT_SUCCESS) {
@@ -227,38 +237,39 @@ int main_generate_keys(main_params *params) {
                     "main_generate_keys: main_generate_rsa_key");
         }
     }
-
     if(result == EXIT_SUCCESS && main_write_dh_key(params,
                 private_key_filename, key, 1) != EXIT_SUCCESS) {
         result = main_error(params, 1,
                 "main_generate_keys: main_write_dh_key (private)");
     }
-    if(private_key_filename != NULL) {
-        OPENSSL_cleanse(private_key_filename, params->filename_length + 1);
-        free(private_key_filename);
-    }
-
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "private key written.\n");
     }
-
     if(result == EXIT_SUCCESS && main_write_dh_key(params,
                 public_key_filename, key, 0) != EXIT_SUCCESS) {
         result = main_error(params, 1,
                 "main_generate_keys: main_write_dh_key (public)");
     }
-    if(public_key_filename != NULL) {
-        OPENSSL_cleanse(public_key_filename, params->filename_length + 1);
-        free(public_key_filename);
-    }
-
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "public key written.\n");
     }
 
+    if(private_key_filename != NULL) {
+        OPENSSL_cleanse(private_key_filename, params->filename_length + 1);
+        free(private_key_filename);
+    }
+    OPENSSL_cleanse(&private_key_filename, sizeof private_key_filename);
+    if(public_key_filename != NULL) {
+        OPENSSL_cleanse(public_key_filename, params->filename_length + 1);
+        free(public_key_filename);
+    }
+    OPENSSL_cleanse(&public_key_filename, sizeof public_key_filename);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&key_type, sizeof key_type);
     EVP_PKEY_free(key);
+    OPENSSL_cleanse(&key, sizeof key);
     EVP_PKEY_free(dh_params);
-
+    OPENSSL_cleanse(&dh_params, sizeof dh_params);
     return result;
 }
 
@@ -274,12 +285,15 @@ void main_enum_init(main_enum *a, const char **all) {
     }
     a->current = NULL;
     a->current_i = 0;
+
+    OPENSSL_cleanse(&a, sizeof a);
+    OPENSSL_cleanse(&all, sizeof all);
+    OPENSSL_cleanse(&i, sizeof i);
 }
 
 int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
         EVP_PKEY **key) {
     int result = EXIT_SUCCESS;
-    int status = 0;
     EVP_PKEY_CTX *ctx = NULL;
 
     if(result == EXIT_SUCCESS && params->debug) {
@@ -300,7 +314,7 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "main_generate_dh_key: keygen initialized.\n");
     }
-    if(result == EXIT_SUCCESS && (status = EVP_PKEY_keygen(ctx, key)) != 1) {
+    if(result == EXIT_SUCCESS && EVP_PKEY_keygen(ctx, key) != 1) {
         result = main_error(params, 1,
                 "main_generate_dh_key: EVP_PKEY_keygen");
     }
@@ -309,13 +323,16 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
     }
 
     EVP_PKEY_CTX_free(ctx);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&dh_params, sizeof dh_params);
+    OPENSSL_cleanse(&key, sizeof key);
     return result;
 }
 
 int main_generate_rsa_key(main_params *params, size_t key_length_bits,
         EVP_PKEY **key) {
     int result = EXIT_SUCCESS;
-    int status = 0;
     EVP_PKEY_CTX *ctx = NULL;
 
     if(result == EXIT_SUCCESS && params->debug) {
@@ -341,7 +358,7 @@ int main_generate_rsa_key(main_params *params, size_t key_length_bits,
         result = main_error(params, 1,
                 "main_generate_rsa_key: EVP_PKEY_CTX_set_rsa_keygen_bits");
     }
-    if(result == EXIT_SUCCESS && (status = EVP_PKEY_keygen(ctx, key)) != 1) {
+    if(result == EXIT_SUCCESS && EVP_PKEY_keygen(ctx, key) != 1) {
         result = main_error(params, 1,
                 "main_generate_rsa_key: EVP_PKEY_keygen");
     }
@@ -350,6 +367,10 @@ int main_generate_rsa_key(main_params *params, size_t key_length_bits,
     }
 
     EVP_PKEY_CTX_free(ctx);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&key_length_bits, sizeof key_length_bits);
     return result;
 }
 
@@ -382,8 +403,11 @@ int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params) {
         result = main_error(params, 1,
                 "main_fill_dh_params: EVP_PKEY_set1_DH");
     }
-    DH_free(dh);
 
+    DH_free(dh);
+    OPENSSL_cleanse(&dh, sizeof dh);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&dh_params, sizeof dh_params);
     return result;
 }
 
@@ -400,7 +424,6 @@ int main_read_text(main_params *params, char *text, size_t text_length) {
             break;
         }
     }
-
     if(result == EXIT_SUCCESS) {
         text[0] = (char)c;
 
@@ -416,15 +439,16 @@ int main_read_text(main_params *params, char *text, size_t text_length) {
             text[i] = (char)c;
         }
     }
-
     if(result == EXIT_SUCCESS) {
         text[i] = 0;
         fprintf(params->out, "\n");
     }
 
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&text, sizeof text);
+    OPENSSL_cleanse(&text_length, sizeof text_length);
     OPENSSL_cleanse(&i, sizeof i);
     OPENSSL_cleanse(&c, sizeof c);
-
     return result;
 }
 
@@ -438,7 +462,6 @@ int main_read_yesno(main_params *params, const char *positive_response,
     if(result == EXIT_SUCCESS && (response = malloc(n + 1)) == NULL) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS && main_read_text(params, response, n) !=
             EXIT_SUCCESS) {
         result = EXIT_FAILURE;
@@ -451,8 +474,10 @@ int main_read_yesno(main_params *params, const char *positive_response,
         OPENSSL_cleanse(response, n + 1);
         free(response);
     }
+    OPENSSL_cleanse(&response, sizeof response);
     OPENSSL_cleanse(&n, sizeof n);
-
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&positive_response, sizeof positive_response);
     return result;
 }
 
@@ -468,12 +493,10 @@ int main_read_enum(main_params *params, main_enum *a) {
     if(result == EXIT_SUCCESS && (response = malloc(a->max + 1)) == NULL) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS &&
             main_read_text(params, response, a->max) != EXIT_SUCCESS) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS) {
         a->current = NULL;
         for(i = 0; i < a->len; i += 1) {
@@ -488,22 +511,34 @@ int main_read_enum(main_params *params, main_enum *a) {
         OPENSSL_cleanse(response, a->max + 1);
         free(response);
     }
+    OPENSSL_cleanse(&response, sizeof response);
     OPENSSL_cleanse(&i, sizeof i);
-
+    OPENSSL_cleanse(&a, sizeof a);
+    OPENSSL_cleanse(&params, sizeof params);
     return result;
 }
 
 int main_error(main_params *params, int type, const char *message) {
     fprintf(params->out, "%s klaida: %s.\n", type ? "Sisteminė" : "Vartotojo",
             message);
+
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&type, sizeof type);
+    OPENSSL_cleanse(&message, sizeof message);
     return EXIT_FAILURE;
 }
 
 int main_string_to_integer(main_params *params, char *string, size_t *integer) {
-    if(sscanf(string, params->size_t_format, integer) == 1) {
-        return EXIT_SUCCESS;
+    int result = EXIT_SUCCESS;
+
+    if(sscanf(string, params->size_t_format, integer) != 1) {
+        result = EXIT_FAILURE;
     }
-    return EXIT_FAILURE;
+
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&string, sizeof string);
+    OPENSSL_cleanse(&integer, sizeof integer);
+    return result;
 }
 
 int main_read_integer(main_params *params, size_t *integer) {
@@ -528,33 +563,45 @@ int main_read_integer(main_params *params, size_t *integer) {
         OPENSSL_cleanse(string, n + 1);
         free(string);
     }
+    OPENSSL_cleanse(&string, sizeof string);
+    OPENSSL_cleanse(&n, sizeof n);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&integer, sizeof integer);
     return result;
 }
 
 int main_aes(const unsigned char *in, unsigned char *out,
         const unsigned char *key) {
+    int result = EXIT_SUCCESS;
     AES_KEY aes_key;
 
     if(AES_set_encrypt_key(key, 256, &aes_key) != 0) {
-        return EXIT_FAILURE;
+        result = EXIT_FAILURE;
     }
-    AES_encrypt(in, out, &aes_key);
+    if(result == EXIT_SUCCESS) {
+        AES_encrypt(in, out, &aes_key);
+    }
 
     OPENSSL_cleanse(&aes_key, sizeof aes_key);
-
-    return EXIT_SUCCESS;
+    OPENSSL_cleanse(&in, sizeof in);
+    OPENSSL_cleanse(&out, sizeof out);
+    OPENSSL_cleanse(&key, sizeof key);
+    return result;
 }
 
 void main_digits(size_t n, size_t *d) {
     for(*d = 1; n > 9; *d += 1) {
         n /= 10;
     }
+
+    OPENSSL_cleanse(&d, sizeof d);
+    OPENSSL_cleanse(&n, sizeof n);
 }
 
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out) {
     int result = EXIT_SUCCESS;
-    size_t plaintext_available;
+    size_t plaintext_available = 0;
     int ciphertext_available = 0;
     unsigned char *plaintext = malloc(params->pipe_buffer_size);
     unsigned char *ciphertext = malloc(params->pipe_buffer_size);
@@ -565,7 +612,6 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     if(ciphertext == NULL) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS) {
         while(!feof(in)) {
             plaintext_available = fread(plaintext, 1, params->pipe_buffer_size,
@@ -604,13 +650,18 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         OPENSSL_cleanse(plaintext, params->pipe_buffer_size);
         free(plaintext);
     }
+    OPENSSL_cleanse(&plaintext, sizeof plaintext);
     if(ciphertext != NULL) {
         OPENSSL_cleanse(ciphertext, params->pipe_buffer_size);
         free(ciphertext);
     }
+    OPENSSL_cleanse(&ciphertext, sizeof ciphertext);
     OPENSSL_cleanse(&plaintext_available, sizeof plaintext_available);
     OPENSSL_cleanse(&ciphertext_available, sizeof ciphertext_available);
-
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
+    OPENSSL_cleanse(&in, sizeof in);
+    OPENSSL_cleanse(&out, sizeof out);
     return result;
 }
 
@@ -714,11 +765,28 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
             result = EXIT_FAILURE;
         }
     }
+
+    BIO_free_all(bio);
+    OPENSSL_cleanse(&bio, sizeof bio);
+    EVP_PKEY_free(pkey);
+    OPENSSL_cleanse(&pkey, sizeof pkey);
+		EVP_PKEY_CTX_free(ctx);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
     if(buffer != NULL) {
         OPENSSL_cleanse(buffer, buffer_length);
         free(buffer);
     }
-    BIO_free_all(bio);
+    OPENSSL_cleanse(&buffer, sizeof buffer);
+    if(encrypted_key != NULL) {
+        OPENSSL_cleanse(encrypted_key, encrypted_key_length);
+        free(encrypted_key);
+    }
+    OPENSSL_cleanse(&encrypted_key, sizeof encrypted_key);
+    OPENSSL_cleanse(&read, sizeof read);
+    OPENSSL_cleanse(&file, sizeof file);
+    OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&key_filename, sizeof key_filename);
+    OPENSSL_cleanse(&key_length, sizeof key_length);
     return result;
 }
 
@@ -736,7 +804,6 @@ int main_derive_key_dh(const char *private_key_filename,
     if(key_length != 32) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS &&
             (bio = BIO_new_file(private_key_filename, "rb")) == NULL) {
         result = EXIT_FAILURE;
@@ -746,7 +813,6 @@ int main_derive_key_dh(const char *private_key_filename,
         result = EXIT_FAILURE;
     }
     BIO_free_all(bio);
-
     if(result == EXIT_SUCCESS &&
             (bio = BIO_new_file(public_key_filename, "rb")) == NULL) {
         result = EXIT_FAILURE;
@@ -755,10 +821,6 @@ int main_derive_key_dh(const char *private_key_filename,
             (peerkey =
              PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL)) == NULL) {
         result = EXIT_FAILURE;
-    }
-    BIO_free_all(bio);
-
-    if(result == EXIT_SUCCESS) {
     }
     if(result == EXIT_SUCCESS && (ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
         result = EXIT_FAILURE;
@@ -778,8 +840,6 @@ int main_derive_key_dh(const char *private_key_filename,
     if(result == EXIT_SUCCESS && EVP_PKEY_derive(ctx, skey, &skeylen) != 1) {
         result = EXIT_FAILURE;
     }
-		EVP_PKEY_CTX_free(ctx);
-
     EVP_MD_CTX_init(&mdctx);
     if(result == EXIT_SUCCESS &&
             EVP_DigestInit_ex(&mdctx, EVP_sha256(), NULL) != 1) {
@@ -795,21 +855,32 @@ int main_derive_key_dh(const char *private_key_filename,
         result = EXIT_FAILURE;
     }
 
-    EVP_PKEY_free(pkey);
-    EVP_PKEY_free(peerkey);
+
     if(skey != NULL) {
         OPENSSL_cleanse(skey, skeylen);
         free(skey);
     }
+    OPENSSL_cleanse(&skey, sizeof skey);
     OPENSSL_cleanse(&skeylen, sizeof skeylen);
-
+    OPENSSL_cleanse(&mdctx, sizeof mdctx);
+		EVP_PKEY_CTX_free(ctx);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
+    EVP_PKEY_free(pkey);
+    OPENSSL_cleanse(&pkey, sizeof pkey);
+    EVP_PKEY_free(peerkey);
+    OPENSSL_cleanse(&peerkey, sizeof peerkey);
+    BIO_free_all(bio);
+    OPENSSL_cleanse(&bio, sizeof bio);
+    OPENSSL_cleanse(&private_key_filename, sizeof private_key_filename);
+    OPENSSL_cleanse(&public_key_filename, sizeof public_key_filename);
+    OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&key_length, sizeof key_length);
     return result;
 }
 
 int main_encrypt(main_params *params, const char *plaintext_filename,
         const char *ciphertext_filename) {
     int result = EXIT_SUCCESS;
-
     char *public_key_filename = malloc(params->filename_length + 1);
     char *private_key_filename = malloc(params->filename_length + 1);
     unsigned char *tag = malloc(params->tag_length);
@@ -822,7 +893,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     fpos_t tag_pos;
     main_enum key_type;
     int confirm = 0;
-
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
 
@@ -835,11 +905,9 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             password == NULL) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS) {
         main_enum_init(&key_type, params->key_types);
     }
-
     if(result == EXIT_SUCCESS) {
         plaintext_file = fopen(plaintext_filename, "rb");
         if(plaintext_file == NULL) {
@@ -1025,62 +1093,83 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             fprintf(params->out, ".\n");
         }
     }
+    if(result == EXIT_SUCCESS && confirm) {
+        fprintf(params->out, "Užšifravimo operacija baigta vykdyti"
+                " sėkmingai\n");
+    }
+
+    if(private_key_filename != NULL) {
+        OPENSSL_cleanse(private_key_filename, params->password_length + 1);
+        free(private_key_filename);
+    }
+    OPENSSL_cleanse(&private_key_filename, sizeof private_key_filename);
+    if(public_key_filename != NULL) {
+        OPENSSL_cleanse(public_key_filename, params->password_length + 1);
+        free(public_key_filename);
+    }
+    OPENSSL_cleanse(&public_key_filename, sizeof public_key_filename);
+    if(tag != NULL) {
+        OPENSSL_cleanse(tag, params->tag_length);
+        free(tag);
+    }
+    OPENSSL_cleanse(&tag, sizeof tag);
+    if(iv != NULL) {
+        OPENSSL_cleanse(iv, params->iv_length);
+        free(iv);
+    }
+    OPENSSL_cleanse(&iv, sizeof iv);
+    if(key_salt != NULL) {
+        OPENSSL_cleanse(key_salt, params->key_salt_length);
+        free(key_salt);
+    }
+    OPENSSL_cleanse(&key_salt, sizeof key_salt);
+    OPENSSL_cleanse(&key_length, sizeof key_length);
+    if(password != NULL) {
+        OPENSSL_cleanse(password, params->password_length + 1);
+        free(password);
+    }
+    OPENSSL_cleanse(&password, sizeof password);
+    if(key != NULL) {
+        OPENSSL_cleanse(key, key_length);
+        free(key);
+    }
+    OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&tag_pos, sizeof tag_pos);
+    OPENSSL_cleanse(&confirm, sizeof confirm);
+    OPENSSL_cleanse(&key_type, sizeof key_type);
+    EVP_CIPHER_CTX_free(ctx);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
     if(ciphertext_file != NULL) {
         if(fclose(ciphertext_file) == EOF) {
             result = main_error(params, 1,
                     "main_encrypt: fclose (ciphertext_file)");
         }
     }
+    OPENSSL_cleanse(&ciphertext_file, sizeof ciphertext_file);
     if(plaintext_file != NULL) {
         if(fclose(plaintext_file) == EOF) {
             result = main_error(params, 1,
                     "main_encrypt: nepavyko uždaryti tekstogramos failo");
         }
     }
-    OPENSSL_cleanse(&tag_pos, sizeof tag_pos);
-    if(tag != NULL) {
-        OPENSSL_cleanse(tag, params->tag_length);
-        free(tag);
-    }
-    if(password != NULL) {
-        OPENSSL_cleanse(password, params->password_length + 1);
-        free(password);
-    }
-    if(key != NULL) {
-        OPENSSL_cleanse(key, key_length);
-        free(key);
-    }
-    if(private_key_filename != NULL) {
-        OPENSSL_cleanse(private_key_filename, params->password_length + 1);
-        free(private_key_filename);
-    }
-    if(public_key_filename != NULL) {
-        OPENSSL_cleanse(public_key_filename, params->password_length + 1);
-        free(public_key_filename);
-    }
-    if(iv != NULL) {
-        OPENSSL_cleanse(iv, params->iv_length);
-        free(iv);
-    }
-    if(key_salt != NULL) {
-        OPENSSL_cleanse(key_salt, params->key_salt_length);
-        free(key_salt);
-    }
-    EVP_CIPHER_CTX_free(ctx);
-
-    if(result == EXIT_SUCCESS && confirm) {
-        fprintf(params->out, "Užšifravimo operacija baigta vykdyti"
-                " sėkmingai\n");
-    }
+    OPENSSL_cleanse(&plaintext_file, sizeof plaintext_file);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&plaintext_filename, sizeof plaintext_filename);
+    OPENSSL_cleanse(&ciphertext_filename, sizeof ciphertext_filename);
     return result;
 }
 
 int main_write_size_t(main_params *params, size_t size) {
+    int result = EXIT_SUCCESS;
+
     if(params->size_t_format != NULL && fprintf(params->out,
-                params->size_t_format, size) >= 0) {
-        return EXIT_SUCCESS;
+                params->size_t_format, size) < 0) {
+        result = EXIT_FAILURE;
     }
-    return EXIT_FAILURE;
+
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&size, sizeof size);
+    return result;
 }
 
 int main_read_size_t_bin(FILE *in, size_t *size) {
@@ -1090,11 +1179,9 @@ int main_read_size_t_bin(FILE *in, size_t *size) {
     if(result == EXIT_SUCCESS && fread(&buffer_length, 1, 1, in) < 1) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS && buffer_length > sizeof size) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS) {
         *size = 0;
         if(fread(size, 1, buffer_length, in) < 1) {
@@ -1102,6 +1189,9 @@ int main_read_size_t_bin(FILE *in, size_t *size) {
         }
     }
 
+    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
+    OPENSSL_cleanse(&in, sizeof in);
+    OPENSSL_cleanse(&size, sizeof size);
     return result;
 }
 
@@ -1119,16 +1209,18 @@ int main_write_size_t_bin(FILE *out, size_t size) {
             result = EXIT_FAILURE;
         }
     }
-
     if(result == EXIT_SUCCESS && fwrite(&buffer_length, 1, 1, out) < 1) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS && fwrite(&size, 1, buffer_length, out) <
             buffer_length) {
         result = EXIT_FAILURE;
     }
 
+    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
+    OPENSSL_cleanse(&mask, sizeof mask);
+    OPENSSL_cleanse(&out, sizeof out);
+    OPENSSL_cleanse(&size, sizeof size);
     return result;
 }
 
@@ -1180,13 +1272,18 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         OPENSSL_cleanse(ciphertext, params->pipe_buffer_size);
         free(ciphertext);
     }
+    OPENSSL_cleanse(&ciphertext, sizeof ciphertext);
     if(plaintext != NULL) {
         OPENSSL_cleanse(plaintext, params->pipe_buffer_size);
         free(plaintext);
     }
+    OPENSSL_cleanse(&plaintext, sizeof plaintext);
     OPENSSL_cleanse(&ciphertext_available, sizeof ciphertext_available);
     OPENSSL_cleanse(&plaintext_available, sizeof plaintext_available);
-
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
+    OPENSSL_cleanse(&in, sizeof in);
+    OPENSSL_cleanse(&out, sizeof out);
     return result;
 }
 
@@ -1223,13 +1320,15 @@ int main_read_key_type(main_params *params, main_enum *key_type) {
         break;
     }
 
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&key_type, sizeof key_type);
+    OPENSSL_cleanse(&i, sizeof i);
     return result;
 }
 
 int main_decrypt(main_params *params, const char *ciphertext_filename,
         const char *plaintext_filename) {
     int result = EXIT_SUCCESS;
-
     FILE *plaintext_file = NULL;
     FILE *ciphertext_file = NULL;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
@@ -1247,11 +1346,9 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
             password == NULL) {
         result = EXIT_FAILURE;
     }
-
     if(result == EXIT_SUCCESS) {
         main_enum_init(&key_type, params->key_types);
     }
-
     if(result == EXIT_SUCCESS) {
         ciphertext_file = fopen(ciphertext_filename, "rb");
         if(ciphertext_file == NULL) {
@@ -1370,66 +1467,86 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
                 ciphertext_file, plaintext_file) != EXIT_SUCCESS) {
         result = main_error(params, 1, "main_decrypt: main_decrypt_pipe");
     }
-    if(ciphertext_file != NULL) {
-        if(fclose(ciphertext_file) == EOF) {
-            result = main_error(params, 1,
-                    "main_decrypt: fclose (ciphertext_file)");
-        }
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Iššifravimo operacija baigta vykdyti"
+                " sėkmingai\n");
     }
+
     if(plaintext_file != NULL) {
         if(fclose(plaintext_file) == EOF) {
             result = main_error(params, 1, "main_decrypt: fclose"
                     " (plaintext_file)");
         }
     }
-    if(tag != NULL) {
-        OPENSSL_cleanse(tag, params->tag_length);
-        free(tag);
+    OPENSSL_cleanse(&plaintext_file, sizeof plaintext_file);
+    if(ciphertext_file != NULL) {
+        if(fclose(ciphertext_file) == EOF) {
+            result = main_error(params, 1,
+                    "main_decrypt: fclose (ciphertext_file)");
+        }
     }
-    if(password != NULL) {
-        OPENSSL_cleanse(password, params->password_length + 1);
-        free(password);
-    }
-    if(key != NULL) {
-        OPENSSL_cleanse(key, key_length);
-        free(key);
-    }
-    if(iv != NULL) {
-        OPENSSL_cleanse(iv, params->iv_length);
-        free(iv);
-    }
-    if(key_salt != NULL) {
-        OPENSSL_cleanse(key_salt, params->key_salt_length);
-        free(key_salt);
-    }
+    OPENSSL_cleanse(&ciphertext_file, sizeof ciphertext_file);
+    EVP_CIPHER_CTX_free(ctx);
+    OPENSSL_cleanse(&ctx, sizeof ctx);
     if(private_key_filename != NULL) {
         OPENSSL_cleanse(private_key_filename, params->password_length + 1);
         free(private_key_filename);
     }
+    OPENSSL_cleanse(&private_key_filename, sizeof private_key_filename);
     if(public_key_filename != NULL) {
         OPENSSL_cleanse(public_key_filename, params->password_length + 1);
         free(public_key_filename);
     }
-    OPENSSL_cleanse(&key_type, sizeof key_type);
-    EVP_CIPHER_CTX_free(ctx);
-
-    if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Iššifravimo operacija baigta vykdyti"
-                " sėkmingai\n");
+    OPENSSL_cleanse(&public_key_filename, sizeof public_key_filename);
+    if(tag != NULL) {
+        OPENSSL_cleanse(tag, params->tag_length);
+        free(tag);
     }
+    OPENSSL_cleanse(&tag, sizeof tag);
+    if(iv != NULL) {
+        OPENSSL_cleanse(iv, params->iv_length);
+        free(iv);
+    }
+    OPENSSL_cleanse(&iv, sizeof iv);
+    if(key_salt != NULL) {
+        OPENSSL_cleanse(key_salt, params->key_salt_length);
+        free(key_salt);
+    }
+    OPENSSL_cleanse(&key_salt, sizeof key_salt);
+    if(key != NULL) {
+        OPENSSL_cleanse(key, key_length);
+        free(key);
+    }
+    OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&key_length, sizeof key_length);
+    if(password != NULL) {
+        OPENSSL_cleanse(password, params->password_length + 1);
+        free(password);
+    }
+    OPENSSL_cleanse(&password, sizeof password);
+    OPENSSL_cleanse(&key_type, sizeof key_type);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&ciphertext_filename, sizeof ciphertext_filename);
+    OPENSSL_cleanse(&plaintext_filename, sizeof plaintext_filename);
     return result;
 }
 
 int main_write_bytes_hex(main_params *params, unsigned char *bytes,
         size_t length) {
+    int result = EXIT_SUCCESS;
     size_t i;
 
     for(i = 0; i < length; i += 1) {
         if(fprintf(params->out, "%x", bytes[i]) < 0) {
-            return EXIT_FAILURE;
+            result = EXIT_FAILURE;
+            break;
         }
     }
 
-    return EXIT_SUCCESS;
+    OPENSSL_cleanse(&i, sizeof i);
+    OPENSSL_cleanse(&params, sizeof params);
+    OPENSSL_cleanse(&bytes, sizeof bytes);
+    OPENSSL_cleanse(&length, sizeof length);
+    return result;
 }
 
