@@ -5,6 +5,13 @@ main: main.c
 test: test-password test-dh-key test-rsa-key
 
 .PHONY:
+test-bigfile: main
+	echo "----- Testing encryption of a big file -----"
+	dd if=/dev/urandom of=temporarytestingfile bs=1k count=101
+	echo -e 'password\nraktas\nne' | (echo && ./main uzsifruoti temporarytestingfile main.c.encrypted) && echo -e 'password\nraktas' | (echo && ./main issifruoti main.c.encrypted temporarytestingfile.decrypted) && diff -ru temporarytestingfile temporarytestingfile.decrypted
+	rm temporarytestingfile temporarytestingfile.decrypted
+
+.PHONY:
 test-password: main
 	echo "----- Testing encryption with password -----"
 	echo -e 'password\nraktas\nne' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'password\nraktas' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
