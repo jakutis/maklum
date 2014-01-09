@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 0x6C, 0xC4, 0x16, 0x59
     };
 
-    params.debug = 1;
+    params.debug = 0;
     params.filename_length = 255;
     params.tag_length = 16;
     params.in = stdin;
