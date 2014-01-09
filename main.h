@@ -81,11 +81,19 @@ int main_generate_dh_key(main_params *params, EVP_PKEY *dh_params,
 
 void main_digits(size_t n, size_t *d);
 
+size_t main_size_t_bytes(size_t size);
+
 int main_write_size_t(main_params *params, size_t size);
+
+int main_read_size_t_bin(FILE *in, size_t *size);
 
 int main_write_size_t_bin(FILE *out, size_t size);
 
-int main_read_size_t_bin(FILE *in, size_t *size);
+int main_write_size_t_bin_buffer(unsigned char *out, size_t size,
+        size_t *length);
+
+int main_read_size_t_bin_buffer(unsigned char *in, size_t *size,
+        size_t max_bytes, size_t *bytes_read);
 
 int main_string_to_integer(main_params *params, char *string, size_t *integer);
 

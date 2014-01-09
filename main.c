@@ -599,6 +599,97 @@ void main_digits(size_t n, size_t *d) {
     OPENSSL_cleanse(&n, sizeof n);
 }
 
+int main_read_size_t_bin_buffer(unsigned char *in, size_t *size,
+        size_t max_bytes, size_t *bytes_read) {
+    int result = EXIT_SUCCESS;
+    size_t buffer_length = 0;
+
+    if(result == EXIT_SUCCESS) {
+        memcpy(&buffer_length, in, 1);
+    }
+    if(result == EXIT_SUCCESS && (
+                buffer_length > sizeof *size ||
+                buffer_length + 1 > max_bytes
+                )) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS) {
+        memcpy(size, in + 1, buffer_length);
+        *bytes_read = 1 + buffer_length;
+    }
+
+    OPENSSL_cleanse(&in, sizeof in);
+    OPENSSL_cleanse(&size, sizeof size);
+    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
+    OPENSSL_cleanse(&max_bytes, sizeof max_bytes);
+    OPENSSL_cleanse(&bytes_read, sizeof bytes_read);
+    return result;
+}
+
+int main_write_size_t_bin_buffer(unsigned char *out, size_t size, size_t *length) {
+    int result = EXIT_SUCCESS;
+    size_t buffer_length = main_size_t_bytes(size);
+
+    if(result == EXIT_SUCCESS && buffer_length > UCHAR_MAX) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS) {
+        if(out != NULL) {
+            memcpy(out, &buffer_length, 1);
+            memcpy(out + 1, &size, buffer_length);
+        }
+        *length = 1 + buffer_length;
+    }
+
+    OPENSSL_cleanse(&out, sizeof out);
+    OPENSSL_cleanse(&size, sizeof size);
+    OPENSSL_cleanse(&length, sizeof length);
+    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
+    return result;
+}
+
+int main_write_size_t_bin(FILE *out, size_t size) {
+    int result = EXIT_SUCCESS;
+    size_t buffer_length = main_size_t_bytes(size);
+
+    if(result == EXIT_SUCCESS && buffer_length > UCHAR_MAX) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && fwrite(&buffer_length, 1, 1, out) < 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS &&
+            fwrite(&size, 1, buffer_length, out) < buffer_length) {
+        result = EXIT_FAILURE;
+    }
+
+    OPENSSL_cleanse(&out, sizeof out);
+    OPENSSL_cleanse(&size, sizeof size);
+    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
+    return result;
+}
+
+int main_read_size_t_bin(FILE *in, size_t *size) {
+    int result = EXIT_SUCCESS;
+    size_t buffer_length = 0;
+
+    if(result == EXIT_SUCCESS && fread(&buffer_length, 1, 1, in) < 1) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS && buffer_length > sizeof *size) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS &&
+            fread(size, 1, buffer_length, in) < buffer_length) {
+        result = EXIT_FAILURE;
+    }
+
+    OPENSSL_cleanse(&in, sizeof in);
+    OPENSSL_cleanse(&size, sizeof size);
+    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
+    return result;
+}
+
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out) {
     int result = EXIT_SUCCESS;
@@ -1185,56 +1276,18 @@ int main_write_size_t(main_params *params, size_t size) {
     return result;
 }
 
-int main_read_size_t_bin(FILE *in, size_t *size) {
-    int result = EXIT_SUCCESS;
-    size_t buffer_length = 0;
-
-    if(result == EXIT_SUCCESS && fread(&buffer_length, 1, 1, in) < 1) {
-        result = EXIT_FAILURE;
-    }
-    if(result == EXIT_SUCCESS && buffer_length > sizeof size) {
-        result = EXIT_FAILURE;
-    }
-    if(result == EXIT_SUCCESS) {
-        *size = 0;
-        if(fread(size, 1, buffer_length, in) < 1) {
-            result = EXIT_FAILURE;
-        }
-    }
-
-    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
-    OPENSSL_cleanse(&in, sizeof in);
-    OPENSSL_cleanse(&size, sizeof size);
-    return result;
-}
-
-int main_write_size_t_bin(FILE *out, size_t size) {
-    int result = EXIT_SUCCESS;
+size_t main_size_t_bytes(size_t size) {
     size_t buffer_length = sizeof size;
     size_t mask = ((size_t)UCHAR_MAX) << ((buffer_length - 1) * CHAR_BIT);
 
-    if(result == EXIT_SUCCESS) {
-        while(!(mask & size)) {
-            buffer_length -= 1;
-            mask >>= CHAR_BIT;
-        }
-        if(buffer_length > UCHAR_MAX) {
-            result = EXIT_FAILURE;
-        }
-    }
-    if(result == EXIT_SUCCESS && fwrite(&buffer_length, 1, 1, out) < 1) {
-        result = EXIT_FAILURE;
-    }
-    if(result == EXIT_SUCCESS && fwrite(&size, 1, buffer_length, out) <
-            buffer_length) {
-        result = EXIT_FAILURE;
+    while(!(mask & size) && buffer_length > 0) {
+        buffer_length -= 1;
+        mask >>= CHAR_BIT;
     }
 
-    OPENSSL_cleanse(&buffer_length, sizeof buffer_length);
-    OPENSSL_cleanse(&mask, sizeof mask);
-    OPENSSL_cleanse(&out, sizeof out);
     OPENSSL_cleanse(&size, sizeof size);
-    return result;
+    OPENSSL_cleanse(&mask, sizeof mask);
+    return buffer_length;
 }
 
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
