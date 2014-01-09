@@ -117,7 +117,7 @@ int main_aes(const unsigned char *in, unsigned char *out,
 int main_read_integer(main_params *params, size_t *integer);
 
 int main_read_yesno(main_params *params, const char *positive_response,
-        int *yesno);
+        unsigned char *yesno);
 
 int main_error(main_params *params, int type, const char *message);
 
