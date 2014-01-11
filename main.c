@@ -626,7 +626,8 @@ int main_read_size_t_bin_buffer(unsigned char *in, size_t *size,
     return result;
 }
 
-int main_write_size_t_bin_buffer(unsigned char *out, size_t size, size_t *length) {
+int main_write_size_t_bin_buffer(unsigned char *out, size_t size,
+        size_t *length) {
     int result = EXIT_SUCCESS;
     size_t buffer_length = main_size_t_bytes(size);
 
@@ -845,7 +846,8 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     return result;
 }
 
-int main_read_pkey(const char *filename, EVP_PKEY **pkey, unsigned char private) {
+int main_read_pkey(const char *filename, EVP_PKEY **pkey,
+        unsigned char private) {
     int result = EXIT_SUCCESS;
     BIO *bio = NULL;
 
@@ -874,8 +876,8 @@ int main_read_pkey(const char *filename, EVP_PKEY **pkey, unsigned char private)
     return result;
 }
 
-int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned char *key,
-        size_t key_length) {
+int main_derive_key_rsa(int read, FILE *file, const char *key_filename,
+        unsigned char *key, size_t key_length) {
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     int result = EXIT_SUCCESS;
@@ -917,8 +919,8 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
         if(result == EXIT_SUCCESS && (buffer = malloc(buffer_length)) == NULL) {
             result = EXIT_FAILURE;
         }
-        if(result == EXIT_SUCCESS && EVP_PKEY_decrypt(ctx, buffer, &buffer_length,
-                    encrypted_key, encrypted_key_length) != 1) {
+        if(result == EXIT_SUCCESS && EVP_PKEY_decrypt(ctx, buffer,
+                    &buffer_length, encrypted_key, encrypted_key_length) != 1) {
             result = EXIT_FAILURE;
         }
         if(result == EXIT_SUCCESS && buffer_length != key_length) {
@@ -1452,15 +1454,16 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         /* ciphertext file into plaintext buffer */
         if(result == EXIT_SUCCESS && !no_more_plaintext) {
             if(feof(in)) {
-                if(EVP_DecryptFinal_ex(ctx, plaintext + plaintext_offset + plaintext_left,
-                            &plaintext_chunk_size) != 1) {
+                if(EVP_DecryptFinal_ex(ctx, plaintext + plaintext_offset +
+                            plaintext_left, &plaintext_chunk_size) != 1) {
                     result = EXIT_FAILURE;
                 }
                 if(result == EXIT_SUCCESS) {
                     no_more_plaintext = 1;
                 }
             } else {
-                ciphertext_chunk_size = fread(ciphertext, 1, ciphertext_buffer_size, in);
+                ciphertext_chunk_size = fread(ciphertext, 1,
+                        ciphertext_buffer_size, in);
                 if(ferror(in)) {
                     result = EXIT_FAILURE;
                 }
@@ -1531,7 +1534,8 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     plaintext_processed += plaintext_left;
                     status = 3;
                 }
-            } else if((status == 0 || status == 1) && frame_size <= plaintext_left) {
+            } else if((status == 0 || status == 1) &&
+                    frame_size <= plaintext_left) {
                 /* read frame */
                 if(fwrite(plaintext + plaintext_offset, 1, frame_size, out)
                         < frame_size) {
