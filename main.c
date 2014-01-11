@@ -822,7 +822,6 @@ int main_read_pkey(const char *filename, EVP_PKEY **pkey, unsigned char private)
 
 int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned char *key,
         size_t key_length) {
-    BIO *bio = NULL;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     int result = EXIT_SUCCESS;
@@ -831,14 +830,9 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
     size_t buffer_length = 0;
     unsigned char *buffer = NULL;
 
-    if(result == EXIT_SUCCESS &&
-            (bio = BIO_new_file(key_filename, "rb")) == NULL) {
-        result = EXIT_FAILURE;
-    }
     if(read) {
         if(result == EXIT_SUCCESS &&
-                (pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)) ==
-                NULL) {
+                main_read_pkey(key_filename, &pkey, 1) != EXIT_SUCCESS) {
             result = EXIT_FAILURE;
         }
         if(result == EXIT_SUCCESS &&
@@ -879,7 +873,7 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
         memcpy(key, buffer, key_length);
     } else {
         if(result == EXIT_SUCCESS &&
-                (pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL)) == NULL) {
+                main_read_pkey(key_filename, &pkey, 0) != EXIT_SUCCESS) {
             result = EXIT_FAILURE;
         }
         if(result == EXIT_SUCCESS &&
@@ -921,8 +915,6 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned
         }
     }
 
-    BIO_free_all(bio);
-    OPENSSL_cleanse(&bio, sizeof bio);
     EVP_PKEY_free(pkey);
     OPENSSL_cleanse(&pkey, sizeof pkey);
 		EVP_PKEY_CTX_free(ctx);
@@ -954,27 +946,16 @@ int main_derive_key_dh(const char *private_key_filename,
     EVP_MD_CTX mdctx;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL, *peerkey = NULL;
-    BIO *bio = NULL;
 
     if(key_length != 32) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS &&
-            (bio = BIO_new_file(private_key_filename, "rb")) == NULL) {
+             main_read_pkey(private_key_filename, &pkey, 1) != EXIT_SUCCESS) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS &&
-            (pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)) == NULL) {
-        result = EXIT_FAILURE;
-    }
-    BIO_free_all(bio);
-    if(result == EXIT_SUCCESS &&
-            (bio = BIO_new_file(public_key_filename, "rb")) == NULL) {
-        result = EXIT_FAILURE;
-    }
-    if(result == EXIT_SUCCESS &&
-            (peerkey =
-             PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL)) == NULL) {
+             main_read_pkey(public_key_filename, &peerkey, 0) != EXIT_SUCCESS) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS && (ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
@@ -1024,8 +1005,6 @@ int main_derive_key_dh(const char *private_key_filename,
     OPENSSL_cleanse(&pkey, sizeof pkey);
     EVP_PKEY_free(peerkey);
     OPENSSL_cleanse(&peerkey, sizeof peerkey);
-    BIO_free_all(bio);
-    OPENSSL_cleanse(&bio, sizeof bio);
     OPENSSL_cleanse(&private_key_filename, sizeof private_key_filename);
     OPENSSL_cleanse(&public_key_filename, sizeof public_key_filename);
     OPENSSL_cleanse(&key, sizeof key);
