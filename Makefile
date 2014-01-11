@@ -27,7 +27,7 @@ test-dh-key: main
 test-rsa-key: main
 	echo "----- Testing encryption with rsa key exchange -----"
 	echo -e 'rsa\nb_private.pem\nb_public.pem' | ./main sukurtiraktus
-	echo -e 'rsa\nb_public.pem\nne' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'rsa\nb_private.pem' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
+	echo -e 'rsa\nb_public.pem\ntaip\nb_private.pem' | (echo && ./main uzsifruoti main.c main.c.encrypted) && echo -e 'rsa\nb_private.pem\nb_public.pem' | (echo && ./main issifruoti main.c.encrypted main.c.decrypted) && diff -ru main.c main.c.decrypted
 
 .PHONY:
 clean:

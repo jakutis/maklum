@@ -691,7 +691,7 @@ int main_read_size_t_bin(FILE *in, size_t *size) {
 }
 
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
-        FILE *out) {
+        FILE *out, const char *key_filename) {
     int result = EXIT_SUCCESS;
     size_t metadata_available = 0;
     size_t plaintext_available = 0;
@@ -699,7 +699,24 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     unsigned char *metadata = malloc(1 + sizeof(size_t));
     unsigned char *plaintext = malloc(params->pipe_buffer_size);
     unsigned char *ciphertext = malloc(params->pipe_buffer_size);
+    EVP_PKEY *key = NULL;
+    EVP_MD_CTX *mdctx = NULL;
+    unsigned char *signature = NULL;
+    size_t signature_length = 0;
 
+    if(key_filename != NULL) {
+        if(result == EXIT_SUCCESS && (mdctx = EVP_MD_CTX_create()) == NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                main_read_pkey(key_filename, &key, 1) != EXIT_SUCCESS) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, key) != 1) {
+            result = EXIT_FAILURE;
+        }
+    }
     if(result == EXIT_SUCCESS && (plaintext == NULL || ciphertext == NULL)) {
         result = EXIT_FAILURE;
     }
@@ -723,9 +740,12 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 result = EXIT_FAILURE;
                 break;
             }
-            fprintf(params->out, "Nuskaityta tekstogramos baitų: ");
-            main_write_size_t(params, plaintext_available);
-            fprintf(params->out, "\n");
+            if(key_filename != NULL &&
+                    EVP_DigestSignUpdate(mdctx, plaintext, plaintext_available)
+                    != 1) {
+                result = EXIT_FAILURE;
+                break;
+            }
             if(main_write_size_t_bin_buffer(metadata,
                     /* fread returns less than nmemb only on ferror or feof */
                     plaintext_available < params->pipe_buffer_size ?
@@ -753,6 +773,28 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     ciphertext_available);
         }
     }
+    if(key_filename != NULL) {
+        if(result == EXIT_SUCCESS &&
+                EVP_DigestSignFinal(mdctx, NULL, &signature_length) != 1) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                (signature = malloc(signature_length)) == NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && (
+                EVP_DigestSignFinal(mdctx, signature, &signature_length) != 1 ||
+                EVP_EncryptUpdate(ctx, ciphertext, &ciphertext_available,
+                    signature, (int)signature_length) != 1 ||
+                fwrite(ciphertext, 1, (size_t)ciphertext_available, out) <
+                    (size_t)ciphertext_available)) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS) {
+            fprintf(params->out,
+                    "Įrašyta šifrogramos baitų: %d\n", ciphertext_available);
+        }
+    }
     if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext,
                 &ciphertext_available) != 1) {
         result = EXIT_FAILURE;
@@ -763,7 +805,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Įrašyta paskutinių šifrogramos baitų: %d\n",
+        fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
                 ciphertext_available);
     }
 
@@ -781,6 +823,17 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         OPENSSL_cleanse(metadata, 1 + sizeof metadata_available);
         free(metadata);
     }
+    EVP_PKEY_free(key);
+    OPENSSL_cleanse(&key, sizeof key);
+    EVP_MD_CTX_destroy(mdctx);
+    OPENSSL_cleanse(&mdctx, sizeof mdctx);
+    if(signature != NULL) {
+        OPENSSL_cleanse(signature, signature_length);
+        free(signature);
+    }
+    OPENSSL_cleanse(&signature, sizeof signature);
+    OPENSSL_cleanse(&signature_length, sizeof signature_length);
+    OPENSSL_cleanse(&key_filename, sizeof key_filename);
     OPENSSL_cleanse(&metadata, sizeof metadata);
     OPENSSL_cleanse(&metadata_available, sizeof metadata_available);
     OPENSSL_cleanse(&plaintext_available, sizeof plaintext_available);
@@ -1023,8 +1076,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     unsigned char *key_salt = malloc(params->key_salt_length);
     size_t key_length = 32;
     unsigned char *key = malloc(key_length);
-    size_t aad_length = 1;
-    unsigned char *aad = malloc(aad_length);
+    unsigned char sign = 0;
     char *password = malloc(params->password_length + 1);
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     fpos_t tag_pos;
@@ -1034,7 +1086,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
 
     if(public_key_filename == NULL || private_key_filename == NULL ||
             tag == NULL || iv == NULL || key_salt == NULL || key == NULL ||
-            password == NULL || sign_key_filename == NULL || aad == NULL) {
+            password == NULL || sign_key_filename == NULL) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
@@ -1108,20 +1160,17 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Ar norėsite pasirašyti RSA parašu (taip/ne)? ");
-        if(main_read_yesno(params, "taip", aad) != EXIT_SUCCESS) {
+        if(main_read_yesno(params, "taip", &sign) != EXIT_SUCCESS) {
             result = main_error(params, 1,
                     "main_encrypt: main_read_yesno (sign)");
         }
     }
-    if(result == EXIT_SUCCESS && aad[0]) {
+    if(result == EXIT_SUCCESS && sign) {
         fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                 " failo (maksimalus ilgis yra ");
         main_write_size_t(params, params->filename_length);
         fprintf(params->out, "): ");
         main_read_text(params, sign_key_filename, params->filename_length);
-    }
-    if(result == EXIT_SUCCESS && aad[0]) {
-        result = main_error(params, 1, "main_encrypt: sign is not implemented");
     }
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Operacija vykdoma, prašome palaukti.\n");
@@ -1184,15 +1233,16 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     "main_encrypt: EVP_EncryptInit_ex (key, iv)");
         }
         if(result == EXIT_SUCCESS) {
+            /* providing aad data, in our case one byte only */
             /* hack - reuse result - why create another variable just for this
              * dummy use?
              */
-            if(EVP_EncryptUpdate(ctx, NULL, &result, aad, (int)aad_length)
+            if(EVP_EncryptUpdate(ctx, NULL, &result, &sign, 1)
                     == 1) {
                 result = EXIT_SUCCESS;
             } else {
                 result = main_error(params, 1,
-                        "main_encrypt: EVP_EncryptUpdate (aad)");
+                        "main_encrypt: EVP_EncryptUpdate (sign)");
             }
         }
         if(result == EXIT_SUCCESS &&
@@ -1207,7 +1257,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
             result = main_error(params, 1,
                     "main_encrypt: fwrite (iv)");
         }
-        if(result == EXIT_SUCCESS && fputc(aad[0], ciphertext_file) == EOF) {
+        if(result == EXIT_SUCCESS && fputc(sign, ciphertext_file) == EOF) {
             result = main_error(params, 1,
                     "main_encrypt: fputc (sign)");
         }
@@ -1221,7 +1271,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     "main_encrypt: fwrite (spacing tag)");
         }
         if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
-                    plaintext_file, ciphertext_file) !=
+                    plaintext_file, ciphertext_file, sign_key_filename) !=
                 EXIT_SUCCESS) {
             result = main_error(params, 1,
                     "main_encrypt: main_encrypt_pipe");
@@ -1288,12 +1338,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         free(password);
     }
     OPENSSL_cleanse(&password, sizeof password);
-    if(aad != NULL) {
-        OPENSSL_cleanse(aad, aad_length);
-        free(aad);
-    }
-    OPENSSL_cleanse(&aad, sizeof aad);
-    OPENSSL_cleanse(&aad_length, sizeof aad_length);
+    OPENSSL_cleanse(&sign, sizeof sign);
     if(key != NULL) {
         OPENSSL_cleanse(key, key_length);
         free(key);
@@ -1351,14 +1396,19 @@ size_t main_size_t_bytes(size_t size) {
 }
 
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
-        FILE *out) {
+        FILE *out, const char *key_filename) {
     int result = EXIT_SUCCESS;
-    size_t last_frame_status = 0;
+    unsigned char no_more_plaintext = 0;
+    EVP_PKEY *key = NULL;
+    EVP_MD_CTX *mdctx = NULL;
+    size_t status = 0;
     size_t max_frame_size = 0;
     size_t frame_size = 0;
     size_t ciphertext_chunk_size;
     size_t ciphertext_buffer_size = params->pipe_buffer_size;
     unsigned char *ciphertext = malloc(ciphertext_buffer_size);
+    size_t signature_length = 0;
+    unsigned char *signature = NULL;
     size_t plaintext_processed;
     size_t plaintext_left = 0;
     size_t plaintext_offset = 0;
@@ -1370,7 +1420,20 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     if(result == EXIT_SUCCESS && (plaintext == NULL || ciphertext == NULL)) {
         result = EXIT_FAILURE;
     }
-    while(result == EXIT_SUCCESS && last_frame_status != 2) {
+    if(key_filename != NULL) {
+        if(result == EXIT_SUCCESS && (mdctx = EVP_MD_CTX_create()) == NULL) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS &&
+                main_read_pkey(key_filename, &key, 0) != EXIT_SUCCESS) {
+            result = EXIT_FAILURE;
+        }
+        if(result == EXIT_SUCCESS && EVP_DigestVerifyInit(mdctx, NULL,
+                        EVP_sha256(), NULL, key) != 1) {
+            result = EXIT_FAILURE;
+        }
+    }
+    while(result == EXIT_SUCCESS && status != 3) {
         memcpy(plaintext_prev, plaintext + plaintext_offset, plaintext_left);
         plaintext_ = plaintext_prev;
         plaintext_prev = plaintext;
@@ -1386,26 +1449,26 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         }
 
         /* ciphertext file into plaintext buffer */
-        if(result == EXIT_SUCCESS) {
+        if(result == EXIT_SUCCESS && !no_more_plaintext) {
             if(feof(in)) {
                 if(EVP_DecryptFinal_ex(ctx, plaintext + plaintext_offset + plaintext_left,
                             &plaintext_chunk_size) != 1) {
                     result = EXIT_FAILURE;
+                }
+                if(result == EXIT_SUCCESS) {
+                    no_more_plaintext = 1;
                 }
             } else {
                 ciphertext_chunk_size = fread(ciphertext, 1, ciphertext_buffer_size, in);
                 if(ferror(in)) {
                     result = EXIT_FAILURE;
                 }
-                if(result == EXIT_SUCCESS) {
-                    fprintf(params->out, "Nuskaityta šifrogramos baitų: ");
-                    main_write_size_t(params, ciphertext_chunk_size);
-                    fprintf(params->out, "\n");
-                    if(EVP_DecryptUpdate(ctx, plaintext + plaintext_offset + plaintext_left,
-                                &plaintext_chunk_size, ciphertext,
-                                (int)ciphertext_chunk_size) != 1) {
-                        result = EXIT_FAILURE;
-                    }
+                if(result == EXIT_SUCCESS &&
+                        EVP_DecryptUpdate(ctx,
+                            plaintext + plaintext_offset + plaintext_left,
+                            &plaintext_chunk_size, ciphertext,
+                            (int)ciphertext_chunk_size) != 1) {
+                    result = EXIT_FAILURE;
                 }
             }
         }
@@ -1420,7 +1483,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         }
         while(result == EXIT_SUCCESS && plaintext_processed) {
             plaintext_processed = 0;
-            if(result == EXIT_SUCCESS && params->debug) {
+            if(params->debug) {
                 fprintf(params->out, "-- <<<<<< --\nmax_frame_size = ");
                 main_write_size_t(params, max_frame_size);
                 fprintf(params->out, "\n");
@@ -1453,13 +1516,28 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     if(!frame_size) {
                         frame_size = max_frame_size;
                     } else {
-                        last_frame_status = 1;
+                        status = 1;
                     }
                 }
-            } else if(frame_size <= plaintext_left) {
+            } else if(status == 2 && no_more_plaintext) {
+                /* read signature */
+                if(key_filename != NULL && EVP_DigestVerifyFinal(mdctx,
+                            plaintext + plaintext_offset,
+                            plaintext_left) != 1) {
+                    result = EXIT_FAILURE;
+                }
+                if(result == EXIT_SUCCESS) {
+                    plaintext_processed += plaintext_left;
+                    status = 3;
+                }
+            } else if((status == 0 || status == 1) && frame_size <= plaintext_left) {
                 /* read frame */
                 if(fwrite(plaintext + plaintext_offset, 1, frame_size, out)
                         < frame_size) {
+                    result = EXIT_FAILURE;
+                }
+                if(result == EXIT_SUCCESS && EVP_DigestVerifyUpdate(mdctx,
+                            plaintext + plaintext_offset, frame_size) != 1) {
                     result = EXIT_FAILURE;
                 }
                 if(result == EXIT_SUCCESS) {
@@ -1467,16 +1545,10 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     fprintf(params->out, "Įrašyta tekstogramos baitų failo: ");
                     main_write_size_t(params, frame_size);
                     fprintf(params->out, "\n");
-                    frame_size = 0;
-                    if(last_frame_status == 1) {
-                        /* This block of code will need to be updated when
-                         * signature verification is implemented.
-                         */
-                        if(plaintext_left != plaintext_processed) {
-                            result = EXIT_FAILURE;
-                        } else {
-                            last_frame_status = 2;
-                        }
+                    if(status == 1) {
+                        status = 2;
+                    } else {
+                        frame_size = 0;
                     }
                 }
             }
@@ -1518,7 +1590,17 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     }
     OPENSSL_cleanse(&plaintext, sizeof plaintext);
     OPENSSL_cleanse(&plaintext_, sizeof plaintext_);
-    OPENSSL_cleanse(&last_frame_status, sizeof last_frame_status);
+    if(signature != NULL) {
+        OPENSSL_cleanse(signature, signature_length);
+        free(signature);
+    }
+    OPENSSL_cleanse(&signature, sizeof signature);
+    EVP_MD_CTX_destroy(mdctx);
+    OPENSSL_cleanse(&mdctx, sizeof mdctx);
+    EVP_PKEY_free(key);
+    OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&signature_length, sizeof signature_length);
+    OPENSSL_cleanse(&status, sizeof status);
     OPENSSL_cleanse(&plaintext_offset, sizeof plaintext_offset);
     OPENSSL_cleanse(&max_frame_size, sizeof max_frame_size);
     OPENSSL_cleanse(&frame_size, sizeof frame_size);
@@ -1528,6 +1610,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     OPENSSL_cleanse(&ciphertext_buffer_size, sizeof ciphertext_buffer_size);
     OPENSSL_cleanse(&ciphertext_chunk_size, sizeof ciphertext_chunk_size);
     OPENSSL_cleanse(&plaintext_left, sizeof plaintext_left);
+    OPENSSL_cleanse(&no_more_plaintext, sizeof no_more_plaintext);
     OPENSSL_cleanse(&params, sizeof params);
     OPENSSL_cleanse(&ctx, sizeof ctx);
     OPENSSL_cleanse(&in, sizeof in);
@@ -1586,15 +1669,14 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     unsigned char *tag = malloc(params->tag_length);
     unsigned char *iv = malloc(params->iv_length);
     unsigned char *key_salt = malloc(params->key_salt_length);
-    size_t aad_length = 1;
-    unsigned char *aad = malloc(aad_length);
+    unsigned char sign = 0;
     size_t key_length = 32;
     unsigned char *key = malloc(key_length);
     char *password = malloc(params->password_length + 1);
     main_enum key_type;
 
     if(tag == NULL || iv == NULL || key_salt == NULL || key == NULL ||
-            password == NULL || aad == NULL || public_key_filename == NULL ||
+            password == NULL || public_key_filename == NULL ||
             private_key_filename == NULL || sign_key_filename == NULL) {
         result = EXIT_FAILURE;
     }
@@ -1681,18 +1763,15 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         }
     }
     if(result == EXIT_SUCCESS &&
-            fread(aad, 1, 1, ciphertext_file) < 1) {
+            fread(&sign, 1, 1, ciphertext_file) < 1) {
         result = main_error(params, 1, "main_decrypt: fgetc (sign)");
     }
-    if(result == EXIT_SUCCESS && aad[0]) {
+    if(result == EXIT_SUCCESS && sign) {
         fprintf(params->out, "Suveskite kelią iki siuntėjo viešojo rakto rakto"
                 " failo (maksimalus ilgis yra ");
         main_write_size_t(params, params->filename_length);
         fprintf(params->out, "): ");
         main_read_text(params, sign_key_filename, params->filename_length);
-    }
-    if(result == EXIT_SUCCESS && aad[0]) {
-        result = main_error(params, 1, "main_decrypt: sign is not implemented");
     }
     if(result == EXIT_SUCCESS) {
         fread(tag, 1, params->tag_length, ciphertext_file);
@@ -1733,16 +1812,17 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         /* hack - reuse result - why create another variable just for this
          * dummy use?
          */
-        if(EVP_DecryptUpdate(ctx, NULL, &result, aad, (int)aad_length)
+        if(EVP_DecryptUpdate(ctx, NULL, &result, &sign, 1)
                 == 1) {
             result = EXIT_SUCCESS;
         } else {
             result = main_error(params, 1,
-                    "main_decrypt: EVP_DecryptUpdate (aad)");
+                    "main_decrypt: EVP_DecryptUpdate (sign)");
         }
     }
     if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx,
-                ciphertext_file, plaintext_file) != EXIT_SUCCESS) {
+                ciphertext_file, plaintext_file, sign_key_filename)
+            != EXIT_SUCCESS) {
         result = main_error(params, 1, "main_decrypt: main_decrypt_pipe");
     }
     if(result == EXIT_SUCCESS) {
@@ -1802,12 +1882,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     }
     OPENSSL_cleanse(&key, sizeof key);
     OPENSSL_cleanse(&key_length, sizeof key_length);
-    if(aad != NULL) {
-        OPENSSL_cleanse(aad, aad_length);
-        free(aad);
-    }
-    OPENSSL_cleanse(&aad, sizeof aad);
-    OPENSSL_cleanse(&aad_length, sizeof aad_length);
+    OPENSSL_cleanse(&sign, sizeof sign);
     if(password != NULL) {
         OPENSSL_cleanse(password, params->password_length + 1);
         free(password);

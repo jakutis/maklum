@@ -101,10 +101,10 @@ int main_read_size_t_bin_buffer(unsigned char *in, size_t *size,
 int main_string_to_integer(main_params *params, char *string, size_t *integer);
 
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
-        FILE *out);
+        FILE *out, const char *sign_key_filename);
 
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
-        FILE *out);
+        FILE *out, const char *sign_key_filename);
 
 int main_decrypt(main_params *params, const char *ciphertext_filename,
         const char *plaintext_filename);
