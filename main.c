@@ -1401,7 +1401,6 @@ size_t main_size_t_bytes(size_t size) {
 int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out, const char *key_filename) {
     int result = EXIT_SUCCESS;
-    unsigned char no_more_plaintext = 0;
     EVP_PKEY *key = NULL;
     EVP_MD_CTX *mdctx = NULL;
     size_t status = 0;
@@ -1436,7 +1435,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             result = EXIT_FAILURE;
         }
     }
-    while(result == EXIT_SUCCESS && status != 3) {
+    while(result == EXIT_SUCCESS && status != 5) {
         memcpy(plaintext_prev, plaintext + plaintext_offset, plaintext_left);
         plaintext_ = plaintext_prev;
         plaintext_prev = plaintext;
@@ -1452,14 +1451,14 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         }
 
         /* ciphertext file into plaintext buffer */
-        if(result == EXIT_SUCCESS && !no_more_plaintext) {
+        if(result == EXIT_SUCCESS && in != NULL) {
             if(feof(in)) {
                 if(EVP_DecryptFinal_ex(ctx, plaintext + plaintext_offset +
                             plaintext_left, &plaintext_chunk_size) != 1) {
                     result = EXIT_FAILURE;
                 }
                 if(result == EXIT_SUCCESS) {
-                    no_more_plaintext = 1;
+                    in = NULL;
                 }
             } else {
                 ciphertext_chunk_size = fread(ciphertext, 1,
@@ -1504,7 +1503,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 main_write_size_t(params, plaintext_left);
                 fprintf(params->out, "\n");
             }
-            if(!max_frame_size) {
+            if(status == 0) {
                 /* read max frame size */
                 if(main_read_size_t_bin_buffer(plaintext + plaintext_offset,
                         &max_frame_size, plaintext_left,
@@ -1512,52 +1511,60 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                         max_frame_size > params->pipe_buffer_size) {
                     result = EXIT_FAILURE;
                 }
-            } else if(!frame_size) {
-                /* read frame size */
+                if(result == EXIT_SUCCESS) {
+                    status = 1;
+                }
+            } else if(status == 1) {
+                /* read frame */
                 if(main_read_size_t_bin_buffer(plaintext + plaintext_offset,
                         &frame_size, plaintext_left,
                         &plaintext_processed) == EXIT_SUCCESS) {
                     if(!frame_size) {
+                        status = 2;
                         frame_size = max_frame_size;
                     } else {
-                        status = 1;
+                        status = 3;
                     }
                 }
-            } else if(status == 2 && no_more_plaintext) {
-                /* read signature */
-                if(key_filename != NULL) {
-                    if(EVP_DigestVerifyFinal(mdctx,
-                                plaintext + plaintext_offset,
-                                plaintext_left) != 1) {
+            } else if(status == 2 || status == 3) {
+                if(frame_size <= plaintext_left) {
+                    if(fwrite(plaintext + plaintext_offset, 1, frame_size, out)
+                            < frame_size) {
                         result = EXIT_FAILURE;
                     }
+                    if(key_filename != NULL) {
+                        if(result == EXIT_SUCCESS && EVP_DigestVerifyUpdate(mdctx,
+                                    plaintext + plaintext_offset,
+                                    frame_size) != 1) {
+                            result = EXIT_FAILURE;
+                        }
+                    }
                     if(result == EXIT_SUCCESS) {
-                        plaintext_processed += plaintext_left;
+                        plaintext_processed += frame_size;
+                        fprintf(params->out, "Įrašyta tekstogramos baitų failo: ");
+                        main_write_size_t(params, frame_size);
+                        fprintf(params->out, "\n");
+                        frame_size = 0;
+                        if(status == 3) {
+                            status = 4;
+                        }
                     }
                 }
-                if(result == EXIT_SUCCESS) {
-                    status = 3;
-                }
-            } else if((status == 0 || status == 1) &&
-                    frame_size <= plaintext_left) {
-                /* read frame */
-                if(fwrite(plaintext + plaintext_offset, 1, frame_size, out)
-                        < frame_size) {
-                    result = EXIT_FAILURE;
-                }
-                if(result == EXIT_SUCCESS && EVP_DigestVerifyUpdate(mdctx,
-                            plaintext + plaintext_offset, frame_size) != 1) {
-                    result = EXIT_FAILURE;
-                }
-                if(result == EXIT_SUCCESS) {
-                    plaintext_processed += frame_size;
-                    fprintf(params->out, "Įrašyta tekstogramos baitų failo: ");
-                    main_write_size_t(params, frame_size);
-                    fprintf(params->out, "\n");
-                    if(status == 1) {
-                        status = 2;
-                    } else {
-                        frame_size = 0;
+            } else if(status == 4) {
+                /* read signature */
+                if(in == NULL) {
+                    if(key_filename != NULL) {
+                        if(EVP_DigestVerifyFinal(mdctx,
+                                    plaintext + plaintext_offset,
+                                    plaintext_left) != 1) {
+                            result = EXIT_FAILURE;
+                        }
+                        if(result == EXIT_SUCCESS) {
+                            plaintext_processed += plaintext_left;
+                        }
+                    }
+                    if(result == EXIT_SUCCESS) {
+                        status = 5;
                     }
                 }
             }
@@ -1619,7 +1626,6 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     OPENSSL_cleanse(&ciphertext_buffer_size, sizeof ciphertext_buffer_size);
     OPENSSL_cleanse(&ciphertext_chunk_size, sizeof ciphertext_chunk_size);
     OPENSSL_cleanse(&plaintext_left, sizeof plaintext_left);
-    OPENSSL_cleanse(&no_more_plaintext, sizeof no_more_plaintext);
     OPENSSL_cleanse(&params, sizeof params);
     OPENSSL_cleanse(&ctx, sizeof ctx);
     OPENSSL_cleanse(&in, sizeof in);
