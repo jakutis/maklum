@@ -1274,8 +1274,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
                     "main_encrypt: fwrite (spacing tag)");
         }
         if(result == EXIT_SUCCESS && main_encrypt_pipe(params, ctx,
-                    plaintext_file, ciphertext_file, sign_key_filename) !=
-                EXIT_SUCCESS) {
+                    plaintext_file, ciphertext_file,
+                    sign ? sign_key_filename : NULL) != EXIT_SUCCESS) {
             result = main_error(params, 1,
                     "main_encrypt: main_encrypt_pipe");
         }
@@ -1836,8 +1836,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         }
     }
     if(result == EXIT_SUCCESS && main_decrypt_pipe(params, ctx,
-                ciphertext_file, plaintext_file, sign_key_filename)
-            != EXIT_SUCCESS) {
+                ciphertext_file, plaintext_file,
+                sign ? sign_key_filename : NULL) != EXIT_SUCCESS) {
         result = main_error(params, 1, "main_decrypt: main_decrypt_pipe");
     }
     if(result == EXIT_SUCCESS) {
