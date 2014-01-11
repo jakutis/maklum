@@ -870,6 +870,7 @@ int main_read_pkey(const char *filename, EVP_PKEY **pkey, unsigned char private)
     OPENSSL_cleanse(&bio, sizeof bio);
     OPENSSL_cleanse(&filename, sizeof filename);
     OPENSSL_cleanse(&pkey, sizeof pkey);
+    OPENSSL_cleanse(&private, sizeof private);
     return result;
 }
 
