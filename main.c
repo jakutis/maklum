@@ -1515,7 +1515,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     status = 1;
                 }
             } else if(status == 1) {
-                /* read frame */
+                /* read frame size */
                 if(main_read_size_t_bin_buffer(plaintext + plaintext_offset,
                         &frame_size, plaintext_left,
                         &plaintext_processed) == EXIT_SUCCESS) {
@@ -1527,6 +1527,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     }
                 }
             } else if(status == 2 || status == 3) {
+                /* read frame */
                 if(frame_size <= plaintext_left) {
                     if(fwrite(plaintext + plaintext_offset, 1, frame_size, out)
                             < frame_size) {
