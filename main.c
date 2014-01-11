@@ -1404,20 +1404,21 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     EVP_PKEY *key = NULL;
     EVP_MD_CTX *mdctx = NULL;
     size_t status = 0;
-    size_t max_frame_size = 0;
-    size_t frame_size = 0;
-    size_t ciphertext_chunk_size;
-    size_t ciphertext_buffer_size = params->pipe_buffer_length;
-    unsigned char *ciphertext = malloc(ciphertext_buffer_size);
+    size_t max_frame_length = 0;
+    size_t frame_length = 0;
+    size_t ciphertext_chunk_length;
+    size_t ciphertext_buffer_length = params->pipe_buffer_length;
+    unsigned char *ciphertext = malloc(ciphertext_buffer_length);
     size_t signature_length = 0;
     unsigned char *signature = NULL;
     size_t plaintext_processed;
     size_t plaintext_left = 0;
     size_t plaintext_offset = 0;
-    int plaintext_chunk_size = 0;
-    size_t plaintext_buffer_size = 2 * ciphertext_buffer_size;
-    unsigned char *plaintext_, *plaintext_prev = malloc(plaintext_buffer_size);
-    unsigned char *plaintext = malloc(plaintext_buffer_size);
+    int plaintext_chunk_length = 0;
+    size_t plaintext_buffer_length = 2 * ciphertext_buffer_length;
+    unsigned char *plaintext_prev =malloc(plaintext_buffer_length);
+    unsigned char *plaintext_;
+    unsigned char *plaintext = malloc(plaintext_buffer_length);
 
     if(result == EXIT_SUCCESS && (plaintext == NULL || ciphertext == NULL)) {
         result = EXIT_FAILURE;
@@ -1446,7 +1447,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
          * is never bigger than ciphertext length.
          */
         if(result == EXIT_SUCCESS && plaintext_offset + plaintext_left +
-                ciphertext_buffer_size > plaintext_buffer_size) {
+                ciphertext_buffer_length > plaintext_buffer_length) {
             result = EXIT_FAILURE;
         }
 
@@ -1454,29 +1455,29 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         if(result == EXIT_SUCCESS && in != NULL) {
             if(feof(in)) {
                 if(EVP_DecryptFinal_ex(ctx, plaintext + plaintext_offset +
-                            plaintext_left, &plaintext_chunk_size) != 1) {
+                            plaintext_left, &plaintext_chunk_length) != 1) {
                     result = EXIT_FAILURE;
                 }
                 if(result == EXIT_SUCCESS) {
                     in = NULL;
                 }
             } else {
-                ciphertext_chunk_size = fread(ciphertext, 1,
-                        ciphertext_buffer_size, in);
+                ciphertext_chunk_length = fread(ciphertext, 1,
+                        ciphertext_buffer_length, in);
                 if(ferror(in)) {
                     result = EXIT_FAILURE;
                 }
                 if(result == EXIT_SUCCESS &&
                         EVP_DecryptUpdate(ctx,
                             plaintext + plaintext_offset + plaintext_left,
-                            &plaintext_chunk_size, ciphertext,
-                            (int)ciphertext_chunk_size) != 1) {
+                            &plaintext_chunk_length, ciphertext,
+                            (int)ciphertext_chunk_length) != 1) {
                     result = EXIT_FAILURE;
                 }
             }
         }
         if(result == EXIT_SUCCESS) {
-            plaintext_left += (size_t)plaintext_chunk_size;
+            plaintext_left += (size_t)plaintext_chunk_length;
         }
 
         /* plaintext buffer into plaintext file */
@@ -1487,11 +1488,11 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         while(result == EXIT_SUCCESS && plaintext_processed) {
             plaintext_processed = 0;
             if(params->debug) {
-                fprintf(params->out, "-- <<<<<< --\nmax_frame_size = ");
-                main_write_size_t(params, max_frame_size);
+                fprintf(params->out, "-- <<<<<< --\nmax_frame_length = ");
+                main_write_size_t(params, max_frame_length);
                 fprintf(params->out, "\n");
-                fprintf(params->out, "frame_size = ");
-                main_write_size_t(params, frame_size);
+                fprintf(params->out, "frame_length = ");
+                main_write_size_t(params, frame_length);
                 fprintf(params->out, "\n");
                 fprintf(params->out, "plaintext_processed = ");
                 main_write_size_t(params, plaintext_processed);
@@ -1506,9 +1507,9 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             if(status == 0) {
                 /* read max frame size */
                 if(main_read_size_t_bin_buffer(plaintext + plaintext_offset,
-                        &max_frame_size, plaintext_left,
+                        &max_frame_length, plaintext_left,
                         &plaintext_processed) == EXIT_SUCCESS &&
-                        max_frame_size > params->pipe_buffer_length) {
+                        max_frame_length > params->pipe_buffer_length) {
                     result = EXIT_FAILURE;
                 }
                 if(result == EXIT_SUCCESS) {
@@ -1517,35 +1518,35 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             } else if(status == 1) {
                 /* read frame size */
                 if(main_read_size_t_bin_buffer(plaintext + plaintext_offset,
-                        &frame_size, plaintext_left,
+                        &frame_length, plaintext_left,
                         &plaintext_processed) == EXIT_SUCCESS) {
-                    if(!frame_size) {
+                    if(!frame_length) {
                         status = 2;
-                        frame_size = max_frame_size;
+                        frame_length = max_frame_length;
                     } else {
                         status = 3;
                     }
                 }
             } else if(status == 2 || status == 3) {
                 /* read frame */
-                if(frame_size <= plaintext_left) {
-                    if(fwrite(plaintext + plaintext_offset, 1, frame_size, out)
-                            < frame_size) {
+                if(frame_length <= plaintext_left) {
+                    if(fwrite(plaintext + plaintext_offset, 1,
+                                frame_length, out) < frame_length) {
                         result = EXIT_FAILURE;
                     }
                     if(key_filename != NULL) {
                         if(result == EXIT_SUCCESS && EVP_DigestVerifyUpdate(mdctx,
                                     plaintext + plaintext_offset,
-                                    frame_size) != 1) {
+                                    frame_length) != 1) {
                             result = EXIT_FAILURE;
                         }
                     }
                     if(result == EXIT_SUCCESS) {
-                        plaintext_processed += frame_size;
+                        plaintext_processed += frame_length;
                         fprintf(params->out, "Įrašyta tekstogramos baitų failo: ");
-                        main_write_size_t(params, frame_size);
+                        main_write_size_t(params, frame_length);
                         fprintf(params->out, "\n");
-                        frame_size = 0;
+                        frame_length = 0;
                         if(status == 3) {
                             status = 4;
                         } else if(status == 2) {
@@ -1574,11 +1575,11 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             plaintext_offset += plaintext_processed;
             plaintext_left -= plaintext_processed;
             if(result == EXIT_SUCCESS && params->debug) {
-                fprintf(params->out, "-- >>>>>> --\nmax_frame_size = ");
-                main_write_size_t(params, max_frame_size);
+                fprintf(params->out, "-- >>>>>> --\nmax_frame_length = ");
+                main_write_size_t(params, max_frame_length);
                 fprintf(params->out, "\n");
-                fprintf(params->out, "frame_size = ");
-                main_write_size_t(params, frame_size);
+                fprintf(params->out, "frame_length = ");
+                main_write_size_t(params, frame_length);
                 fprintf(params->out, "\n");
                 fprintf(params->out, "plaintext_processed = ");
                 main_write_size_t(params, plaintext_processed);
@@ -1594,17 +1595,17 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     }
 
     if(ciphertext != NULL) {
-        OPENSSL_cleanse(ciphertext, ciphertext_buffer_size);
+        OPENSSL_cleanse(ciphertext, ciphertext_buffer_length);
         free(ciphertext);
     }
     OPENSSL_cleanse(&ciphertext, sizeof ciphertext);
     if(plaintext_prev != NULL) {
-        OPENSSL_cleanse(plaintext_prev, plaintext_buffer_size);
+        OPENSSL_cleanse(plaintext_prev, plaintext_buffer_length);
         free(plaintext_prev);
     }
     OPENSSL_cleanse(&plaintext_prev, sizeof plaintext_prev);
     if(plaintext != NULL) {
-        OPENSSL_cleanse(plaintext, plaintext_buffer_size);
+        OPENSSL_cleanse(plaintext, plaintext_buffer_length);
         free(plaintext);
     }
     OPENSSL_cleanse(&plaintext, sizeof plaintext);
@@ -1621,13 +1622,13 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     OPENSSL_cleanse(&signature_length, sizeof signature_length);
     OPENSSL_cleanse(&status, sizeof status);
     OPENSSL_cleanse(&plaintext_offset, sizeof plaintext_offset);
-    OPENSSL_cleanse(&max_frame_size, sizeof max_frame_size);
-    OPENSSL_cleanse(&frame_size, sizeof frame_size);
-    OPENSSL_cleanse(&plaintext_buffer_size, sizeof plaintext_buffer_size);
-    OPENSSL_cleanse(&plaintext_chunk_size, sizeof plaintext_chunk_size);
+    OPENSSL_cleanse(&max_frame_length, sizeof max_frame_length);
+    OPENSSL_cleanse(&frame_length, sizeof frame_length);
+    OPENSSL_cleanse(&plaintext_buffer_length, sizeof plaintext_buffer_length);
+    OPENSSL_cleanse(&plaintext_chunk_length, sizeof plaintext_chunk_length);
     OPENSSL_cleanse(&plaintext_processed, sizeof plaintext_processed);
-    OPENSSL_cleanse(&ciphertext_buffer_size, sizeof ciphertext_buffer_size);
-    OPENSSL_cleanse(&ciphertext_chunk_size, sizeof ciphertext_chunk_size);
+    OPENSSL_cleanse(&ciphertext_buffer_length, sizeof ciphertext_buffer_length);
+    OPENSSL_cleanse(&ciphertext_chunk_length, sizeof ciphertext_chunk_length);
     OPENSSL_cleanse(&plaintext_left, sizeof plaintext_left);
     OPENSSL_cleanse(&params, sizeof params);
     OPENSSL_cleanse(&ctx, sizeof ctx);
