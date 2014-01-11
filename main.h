@@ -59,6 +59,9 @@ int main_derive_key_rsa(int read, FILE *file, const char *key_filename,
 
 int main_generate_keys(main_params *params);
 
+int main_read_pkey(const char *filename, EVP_PKEY **pkey,
+        unsigned char private);
+
 int main_write_dh_key(main_params *params, const char *filename,
         EVP_PKEY *dh_params, int private);
 

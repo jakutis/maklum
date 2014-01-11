@@ -792,6 +792,34 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     return result;
 }
 
+int main_read_pkey(const char *filename, EVP_PKEY **pkey, unsigned char private) {
+    int result = EXIT_SUCCESS;
+    BIO *bio = NULL;
+
+    if(result == EXIT_SUCCESS &&
+            (bio = BIO_new_file(filename, "rb")) == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(private) {
+        if(result == EXIT_SUCCESS &&
+                (*pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)) ==
+                NULL) {
+            result = EXIT_FAILURE;
+        }
+    } else {
+        if(result == EXIT_SUCCESS &&
+                (*pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL)) == NULL) {
+            result = EXIT_FAILURE;
+        }
+    }
+
+    BIO_free_all(bio);
+    OPENSSL_cleanse(&bio, sizeof bio);
+    OPENSSL_cleanse(&filename, sizeof filename);
+    OPENSSL_cleanse(&pkey, sizeof pkey);
+    return result;
+}
+
 int main_derive_key_rsa(int read, FILE *file, const char *key_filename, unsigned char *key,
         size_t key_length) {
     BIO *bio = NULL;
