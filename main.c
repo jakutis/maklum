@@ -1547,6 +1547,8 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                         frame_size = 0;
                         if(status == 3) {
                             status = 4;
+                        } else if(status == 2) {
+                            status = 1;
                         }
                     }
                 }
