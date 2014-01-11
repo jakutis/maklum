@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     params.rsa_key_length_bits = 4096;
     params.password_length = 50;
     params.pbkdf2_iterations = 16384;
-    params.pipe_buffer_size = 100000;
+    params.pipe_buffer_length = 100000;
     params.iv_length = 16;
     params.key_salt_length = 32;
     params.size_t_format = NULL;
@@ -698,8 +698,8 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     size_t plaintext_available = 0;
     int ciphertext_available = 0;
     unsigned char *metadata = malloc(1 + sizeof(size_t));
-    unsigned char *plaintext = malloc(params->pipe_buffer_size);
-    unsigned char *ciphertext = malloc(params->pipe_buffer_size);
+    unsigned char *plaintext = malloc(params->pipe_buffer_length);
+    unsigned char *ciphertext = malloc(params->pipe_buffer_length);
     EVP_PKEY *key = NULL;
     EVP_MD_CTX *mdctx = NULL;
     unsigned char *signature = NULL;
@@ -722,7 +722,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS && (
-        main_write_size_t_bin_buffer(metadata, params->pipe_buffer_size,
+        main_write_size_t_bin_buffer(metadata, params->pipe_buffer_length,
             &metadata_available) != EXIT_SUCCESS ||
         EVP_EncryptUpdate(ctx, ciphertext,
             &ciphertext_available, metadata,
@@ -735,7 +735,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             ciphertext_available);
     if(result == EXIT_SUCCESS) {
         while(!feof(in)) {
-            plaintext_available = fread(plaintext, 1, params->pipe_buffer_size,
+            plaintext_available = fread(plaintext, 1, params->pipe_buffer_length,
                     in);
             if(ferror(in)) {
                 result = EXIT_FAILURE;
@@ -749,7 +749,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             }
             if(main_write_size_t_bin_buffer(metadata,
                     /* fread returns less than nmemb only on ferror or feof */
-                    plaintext_available < params->pipe_buffer_size ?
+                    plaintext_available < params->pipe_buffer_length ?
                     plaintext_available : 0,
                     &metadata_available) != EXIT_SUCCESS ||
                 EVP_EncryptUpdate(ctx, ciphertext,
@@ -811,12 +811,12 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     }
 
     if(plaintext != NULL) {
-        OPENSSL_cleanse(plaintext, params->pipe_buffer_size);
+        OPENSSL_cleanse(plaintext, params->pipe_buffer_length);
         free(plaintext);
     }
     OPENSSL_cleanse(&plaintext, sizeof plaintext);
     if(ciphertext != NULL) {
-        OPENSSL_cleanse(ciphertext, params->pipe_buffer_size);
+        OPENSSL_cleanse(ciphertext, params->pipe_buffer_length);
         free(ciphertext);
     }
     OPENSSL_cleanse(&ciphertext, sizeof ciphertext);
@@ -1407,7 +1407,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     size_t max_frame_size = 0;
     size_t frame_size = 0;
     size_t ciphertext_chunk_size;
-    size_t ciphertext_buffer_size = params->pipe_buffer_size;
+    size_t ciphertext_buffer_size = params->pipe_buffer_length;
     unsigned char *ciphertext = malloc(ciphertext_buffer_size);
     size_t signature_length = 0;
     unsigned char *signature = NULL;
@@ -1508,7 +1508,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 if(main_read_size_t_bin_buffer(plaintext + plaintext_offset,
                         &max_frame_size, plaintext_left,
                         &plaintext_processed) == EXIT_SUCCESS &&
-                        max_frame_size > params->pipe_buffer_size) {
+                        max_frame_size > params->pipe_buffer_length) {
                     result = EXIT_FAILURE;
                 }
                 if(result == EXIT_SUCCESS) {
