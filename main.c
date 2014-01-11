@@ -1525,13 +1525,17 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 }
             } else if(status == 2 && no_more_plaintext) {
                 /* read signature */
-                if(key_filename != NULL && EVP_DigestVerifyFinal(mdctx,
-                            plaintext + plaintext_offset,
-                            plaintext_left) != 1) {
-                    result = EXIT_FAILURE;
+                if(key_filename != NULL) {
+                    if(EVP_DigestVerifyFinal(mdctx,
+                                plaintext + plaintext_offset,
+                                plaintext_left) != 1) {
+                        result = EXIT_FAILURE;
+                    }
+                    if(result == EXIT_SUCCESS) {
+                        plaintext_processed += plaintext_left;
+                    }
                 }
                 if(result == EXIT_SUCCESS) {
-                    plaintext_processed += plaintext_left;
                     status = 3;
                 }
             } else if((status == 0 || status == 1) &&
