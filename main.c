@@ -715,6 +715,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     size_t metadata_available = 0;
     size_t plaintext_available = 0;
     int ciphertext_available = 0;
+    int ciphertext_total = 0;
     unsigned char *metadata = malloc(1 + sizeof(size_t));
     unsigned char *plaintext = malloc(params->pipe_buffer_length);
     unsigned char *ciphertext = malloc(params->pipe_buffer_length);
@@ -723,6 +724,10 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     unsigned char *signature = NULL;
     size_t signature_length = 0;
 
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Įrašyta šifrogramos baitų: %20d",
+                ciphertext_total);
+    }
     if(key_filename != NULL) {
         if(result == EXIT_SUCCESS && (mdctx = EVP_MD_CTX_create()) == NULL) {
             result = EXIT_FAILURE;
@@ -749,8 +754,11 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             (size_t)ciphertext_available)) {
         result = EXIT_FAILURE;
     }
-    fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
-            ciphertext_available);
+    if(result == EXIT_SUCCESS) {
+        ciphertext_total += ciphertext_available;
+        main_write_char(params->out, '\b', 20);
+        fprintf(params->out, "%20d", ciphertext_total);
+    }
     if(result == EXIT_SUCCESS) {
         while(!feof(in)) {
             plaintext_available = fread(plaintext, 1, params->pipe_buffer_length,
@@ -778,8 +786,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 result = EXIT_FAILURE;
                 break;
             }
-            fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
-                    ciphertext_available);
+            ciphertext_total += ciphertext_available;
+            main_write_char(params->out, '\b', 20);
+            fprintf(params->out, "%20d", ciphertext_total);
             if(EVP_EncryptUpdate(ctx, ciphertext,
                     &ciphertext_available, plaintext,
                     (int)plaintext_available) != 1 ||
@@ -788,8 +797,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 result = EXIT_FAILURE;
                 break;
             }
-            fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
-                    ciphertext_available);
+            ciphertext_total += ciphertext_available;
+            main_write_char(params->out, '\b', 20);
+            fprintf(params->out, "%20d", ciphertext_total);
         }
     }
     if(key_filename != NULL) {
@@ -810,8 +820,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             result = EXIT_FAILURE;
         }
         if(result == EXIT_SUCCESS) {
-            fprintf(params->out,
-                    "Įrašyta šifrogramos baitų: %d\n", ciphertext_available);
+            ciphertext_total += ciphertext_available;
+            main_write_char(params->out, '\b', 20);
+            fprintf(params->out, "%20d", ciphertext_total);
         }
     }
     if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext,
@@ -824,8 +835,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Įrašyta šifrogramos baitų: %d\n",
-                ciphertext_available);
+        ciphertext_total += ciphertext_available;
+        main_write_char(params->out, '\b', 20);
+        fprintf(params->out, "%20d\n", ciphertext_total);
     }
 
     if(plaintext != NULL) {
