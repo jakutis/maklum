@@ -1,4 +1,4 @@
-main: main.c
+main: main.c main.h
 	clang -fshow-column -fshow-source-location -fcaret-diagnostics -fdiagnostics-format=clang -fdiagnostics-show-option -fdiagnostics-show-category=name -fdiagnostics-fixit-info -std=c89 -fcolor-diagnostics -pedantic -pedantic-errors -Werror -Weverything -Wno-format-nonliteral -lcrypto -o main main.c
 
 .PHONY:
