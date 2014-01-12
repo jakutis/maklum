@@ -1446,19 +1446,6 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     return result;
 }
 
-int main_write_size_t(main_params *params, size_t size) {
-    int result = EXIT_SUCCESS;
-
-    if(params->size_t_format != NULL && fprintf(params->out,
-                params->size_t_format, size) < 0) {
-        result = EXIT_FAILURE;
-    }
-
-    OPENSSL_cleanse(&params, sizeof params);
-    OPENSSL_cleanse(&size, sizeof size);
-    return result;
-}
-
 size_t main_size_t_bytes(size_t size) {
     size_t buffer_length = sizeof size;
     size_t mask = ((size_t)UCHAR_MAX) << ((buffer_length - 1) * CHAR_BIT);

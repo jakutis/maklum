@@ -89,8 +89,6 @@ void main_digits(size_t n, size_t *d);
 
 size_t main_size_t_bytes(size_t size);
 
-int main_write_size_t(main_params *params, size_t size);
-
 int main_read_size_t_bin(FILE *in, size_t *size);
 
 int main_write_size_t_bin(FILE *out, size_t size);
