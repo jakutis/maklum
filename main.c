@@ -691,6 +691,24 @@ int main_read_size_t_bin(FILE *in, size_t *size) {
     return result;
 }
 
+int main_write_char(FILE *f, char c, size_t n) {
+    int result = EXIT_SUCCESS;
+    size_t i;
+
+    for(i = 0; i < n; i += 1) {
+        if(fputc(c, f) == EOF) {
+            result = EXIT_FAILURE;
+            break;
+        }
+    }
+
+    OPENSSL_cleanse(&i, sizeof i);
+    OPENSSL_cleanse(&f, sizeof f);
+    OPENSSL_cleanse(&c, sizeof c);
+    OPENSSL_cleanse(&n, sizeof n);
+    return result;
+}
+
 int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         FILE *out, const char *key_filename) {
     int result = EXIT_SUCCESS;

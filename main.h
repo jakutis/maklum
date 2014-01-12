@@ -70,6 +70,8 @@ int main_read_filename(main_params *params, const char *message,
 
 size_t main_max(size_t a, size_t b);
 
+int main_write_char(FILE *f, char c, size_t n);
+
 int main_read_key_type(main_params *params, main_enum *key_type);
 
 int main_read_enum(main_params *params, main_enum *a);
