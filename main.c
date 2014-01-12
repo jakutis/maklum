@@ -754,7 +754,7 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     size_t metadata_available = 0;
     size_t plaintext_available = 0;
     int ciphertext_available = 0;
-    int ciphertext_total = 0;
+    size_t ciphertext_total = 0;
     unsigned char *metadata = malloc(1 + sizeof(size_t));
     unsigned char *plaintext = malloc(params->pipe_buffer_length);
     unsigned char *ciphertext = malloc(params->pipe_buffer_length);
