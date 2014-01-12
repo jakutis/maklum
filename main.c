@@ -1491,6 +1491,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     size_t plaintext_offset = 0;
     int plaintext_chunk_length = 0;
     size_t plaintext_buffer_length = 2 * ciphertext_buffer_length;
+    size_t plaintext_written = 0;
     unsigned char *plaintext_prev =malloc(plaintext_buffer_length);
     unsigned char *plaintext_;
     unsigned char *plaintext = malloc(plaintext_buffer_length);
@@ -1510,6 +1511,10 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                         EVP_sha256(), NULL, key) != 1) {
             result = EXIT_FAILURE;
         }
+    }
+    if(result == EXIT_SUCCESS) {
+        fprintf(params->out, "Įrašyta tekstogramos baitų: ");
+        fprintf(params->out, params->size_t_format, plaintext_written);
     }
     while(result == EXIT_SUCCESS && status != 5) {
         memcpy(plaintext_prev, plaintext + plaintext_offset, plaintext_left);
@@ -1557,28 +1562,8 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
 
         /* plaintext buffer into plaintext file */
         plaintext_processed = 1;
-        if(result == EXIT_SUCCESS && params->debug) {
-            fprintf(params->out, "------------\n");
-        }
         while(result == EXIT_SUCCESS && plaintext_processed) {
             plaintext_processed = 0;
-            if(params->debug) {
-                fprintf(params->out, "-- <<<<<< --\nmax_frame_length = ");
-                main_write_size_t(params, max_frame_length);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "frame_length = ");
-                main_write_size_t(params, frame_length);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "plaintext_processed = ");
-                main_write_size_t(params, plaintext_processed);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "plaintext_offset = ");
-                main_write_size_t(params, plaintext_offset);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "plaintext_left = ");
-                main_write_size_t(params, plaintext_left);
-                fprintf(params->out, "\n");
-            }
             if(status == 0) {
                 /* read max frame size */
                 if(main_read_size_t_bin_buffer(plaintext + plaintext_offset,
@@ -1619,11 +1604,14 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     }
                     if(result == EXIT_SUCCESS) {
                         plaintext_processed += frame_length;
-                        fprintf(params->out, "Įrašyta tekstogramos baitų failo: ");
-                        main_write_size_t(params, frame_length);
-                        fprintf(params->out, "\n");
+                        plaintext_written += frame_length;
+                        main_write_char(params->out, '\b',
+                                params->size_max_digits);
+                        fprintf(params->out, params->size_t_format,
+                                plaintext_written);
                         frame_length = 0;
                         if(status == 3) {
+                            fprintf(params->out, "\n");
                             status = 4;
                         } else if(status == 2) {
                             status = 1;
@@ -1650,23 +1638,6 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             }
             plaintext_offset += plaintext_processed;
             plaintext_left -= plaintext_processed;
-            if(result == EXIT_SUCCESS && params->debug) {
-                fprintf(params->out, "-- >>>>>> --\nmax_frame_length = ");
-                main_write_size_t(params, max_frame_length);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "frame_length = ");
-                main_write_size_t(params, frame_length);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "plaintext_processed = ");
-                main_write_size_t(params, plaintext_processed);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "plaintext_offset = ");
-                main_write_size_t(params, plaintext_offset);
-                fprintf(params->out, "\n");
-                fprintf(params->out, "plaintext_left = ");
-                main_write_size_t(params, plaintext_left);
-                fprintf(params->out, "\n");
-            }
         }
     }
 
@@ -1684,6 +1655,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         OPENSSL_cleanse(plaintext, plaintext_buffer_length);
         free(plaintext);
     }
+    OPENSSL_cleanse(&plaintext_written, sizeof plaintext_written);
     OPENSSL_cleanse(&plaintext, sizeof plaintext);
     OPENSSL_cleanse(&plaintext_, sizeof plaintext_);
     if(signature != NULL) {
