@@ -723,15 +723,24 @@ int main_read_size_t_bin(FILE *in, size_t *size) {
 
 int main_write_char(FILE *f, char c, size_t n) {
     int result = EXIT_SUCCESS;
+    char *str = malloc(n + 1);
     size_t i;
 
-    for(i = 0; i < n; i += 1) {
-        if(fputc(c, f) == EOF) {
+    if(result == EXIT_SUCCESS && str == NULL) {
+        result = EXIT_FAILURE;
+    }
+    if(result == EXIT_SUCCESS) {
+        memset(str, c, n);
+        if(fprintf(f, "%s", str) < (int)n) {
             result = EXIT_FAILURE;
-            break;
         }
     }
 
+    if(str != NULL) {
+        OPENSSL_cleanse(str, n + 1);
+        free(str);
+    }
+    OPENSSL_cleanse(&str, sizeof str);
     OPENSSL_cleanse(&i, sizeof i);
     OPENSSL_cleanse(&f, sizeof f);
     OPENSSL_cleanse(&c, sizeof c);
