@@ -54,6 +54,8 @@ int main(int argc, char **argv) {
 0x5E, 0x23, 0x27, 0xCF, 0xEF, 0x98, 0xC5, 0x82, 0x66, 0x4B, 0x4C, 0x0F,
 0x6C, 0xC4, 0x16, 0x59
     };
+    size_t size_max_digits_digits = 0;
+    const char *size_t_format_format = NULL;
 
     params.debug = 0;
     params.filename_length = 255;
@@ -71,57 +73,85 @@ int main(int argc, char **argv) {
     params.dh_generator_length = 256;
     params.dh_generator = g;
     params.dh_prime = p;
-    params.size_max = (size_t) - 1;
     params.key_type_password = 0;
     params.key_type_dh = 1;
     params.key_type_rsa = 2;
-    params.key_types = malloc(4 * sizeof(char*));
-    params.key_types[params.key_type_password] = "password";
-    params.key_types[params.key_type_dh] = "dh";
-    params.key_types[params.key_type_rsa] = "rsa";
-    params.key_types[3] = NULL;
-    if(sizeof (short int) == size_t_bytes) {
-        params.size_t_format = "%hu";
-    } else if(sizeof (int) == size_t_bytes) {
-        params.size_t_format = "%u";
-    } else if(sizeof (long int) == size_t_bytes) {
-        params.size_t_format = "%lu";
+    if(result == EXIT_SUCCESS &&
+            (params.key_types = malloc(4 * sizeof(char*))) == NULL) {
+        result = EXIT_FAILURE;
     }
-    if(argc < 2) {
-        result = main_error(&params, 0,
-                "main: nepateiktas operacijos pavadinimas");
-    } else if(strcmp(argv[1], "uzsifruoti") == 0) {
-        if(argc == 2) {
-            result = main_error(&params, 0,
-                    "main: nepateiktas tekstogramos failo vardas");
-        } else if(argc == 3) {
-            result = main_error(&params, 0,
-                    "main: nepateiktas šifrogramos failo vardas");
-        } else {
-            result = main_encrypt(&params, argv[2], argv[3]);
+    if(result == EXIT_SUCCESS) {
+        params.key_types[params.key_type_password] = "password";
+        params.key_types[params.key_type_dh] = "dh";
+        params.key_types[params.key_type_rsa] = "rsa";
+        params.key_types[3] = NULL;
+        main_digits((size_t) - 1, &params.size_max_digits);
+        main_digits(params.size_max_digits, &size_max_digits_digits);
+        if((params.size_t_format = malloc(1 + size_max_digits_digits + 2 + 1))
+                == NULL) {
+            result = EXIT_FAILURE;
         }
-    } else if(strcmp(argv[1], "issifruoti") == 0) {
-        if(argc == 2) {
-            result = main_error(&params, 0,
-                    "main: nepateiktas šifrogramos failo vardas");
-        } else if(argc == 3) {
-            result = main_error(&params, 0,
-                    "main: nepateiktas tekstogramos failo vardas");
+    }
+    if(result == EXIT_SUCCESS) {
+        if(sizeof (short int) == size_t_bytes) {
+            size_t_format_format = "%%%huhu";
+            params.size_t_format_flex = "%hu";
+        } else if(sizeof (int) == size_t_bytes) {
+            size_t_format_format = "%%%uu";
+            params.size_t_format_flex = "%u";
+        } else if(sizeof (long int) == size_t_bytes) {
+            size_t_format_format = "%%%lulu";
+            params.size_t_format_flex = "%lu";
         } else {
-            result = main_decrypt(&params, argv[2], argv[3]);
+            result = EXIT_FAILURE;
         }
-    } else if(strcmp(argv[1], "sukurtiraktus") == 0) {
-        result = main_generate_keys(&params);
-    } else {
-        result = main_error(&params, 0, "main: neatpažintas operacijos"
-                " pavadinimas (turi būti vienas iš: \"uzsifruoti\","
-                " \"issifruoti\", \"sukurtiraktus\")");
+    }
+    if(result == EXIT_SUCCESS) {
+        sprintf(params.size_t_format, size_t_format_format,
+                params.size_max_digits);
+        if(argc < 2) {
+            result = main_error(&params, 0,
+                    "main: nepateiktas operacijos pavadinimas");
+        } else if(strcmp(argv[1], "uzsifruoti") == 0) {
+            if(argc == 2) {
+                result = main_error(&params, 0,
+                        "main: nepateiktas tekstogramos failo vardas");
+            } else if(argc == 3) {
+                result = main_error(&params, 0,
+                        "main: nepateiktas šifrogramos failo vardas");
+            } else {
+                result = main_encrypt(&params, argv[2], argv[3]);
+            }
+        } else if(strcmp(argv[1], "issifruoti") == 0) {
+            if(argc == 2) {
+                result = main_error(&params, 0,
+                        "main: nepateiktas šifrogramos failo vardas");
+            } else if(argc == 3) {
+                result = main_error(&params, 0,
+                        "main: nepateiktas tekstogramos failo vardas");
+            } else {
+                result = main_decrypt(&params, argv[2], argv[3]);
+            }
+        } else if(strcmp(argv[1], "sukurtiraktus") == 0) {
+            result = main_generate_keys(&params);
+        } else {
+            result = main_error(&params, 0, "main: neatpažintas operacijos"
+                    " pavadinimas (turi būti vienas iš: \"uzsifruoti\","
+                    " \"issifruoti\", \"sukurtiraktus\")");
+        }
     }
 
     for(i = 0; i < argc; i += 1) {
         OPENSSL_cleanse(argv[i], strlen(argv[i]) + 1);
     }
+    if(params.size_t_format != NULL) {
+        OPENSSL_cleanse(params.size_t_format,
+                1 + size_max_digits_digits + 2 + 1);
+        free(params.size_t_format);
+    }
     OPENSSL_cleanse(&i, sizeof i);
+    OPENSSL_cleanse(&size_t_format_format, sizeof size_t_format_format);
+    OPENSSL_cleanse(&size_max_digits_digits, sizeof size_max_digits_digits);
     OPENSSL_cleanse(argv, (size_t)(argc) * sizeof argv);
     OPENSSL_cleanse(&argv, sizeof argv);
     OPENSSL_cleanse(&argc, sizeof argc);
@@ -138,7 +168,7 @@ int main_read_filename(main_params *params, const char *message,
     int result = EXIT_SUCCESS;
 
     fprintf(params->out, "%s (maksimalus ilgis yra ", message);
-    main_write_size_t(params, params->filename_length);
+    fprintf(params->out, params->size_t_format_flex, params->filename_length);
     fprintf(params->out, "): ");
     main_read_text(params, filename, params->filename_length);
 
@@ -532,7 +562,7 @@ int main_error(main_params *params, int type, const char *message) {
 int main_string_to_integer(main_params *params, char *string, size_t *integer) {
     int result = EXIT_SUCCESS;
 
-    if(sscanf(string, params->size_t_format, integer) != 1) {
+    if(sscanf(string, params->size_t_format_flex, integer) != 1) {
         result = EXIT_FAILURE;
     }
 
@@ -545,14 +575,14 @@ int main_string_to_integer(main_params *params, char *string, size_t *integer) {
 int main_read_integer(main_params *params, size_t *integer) {
     int result = EXIT_SUCCESS;
     char *string = NULL;
-    size_t n;
 
-    main_digits(params->size_max, &n);
-    if(result == EXIT_SUCCESS && (string = malloc(n + 1)) == NULL) {
+    if(result == EXIT_SUCCESS &&
+            (string = malloc(params->size_max_digits + 1)) == NULL) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS &&
-            main_read_text(params, string, n) != EXIT_SUCCESS) {
+            main_read_text(params, string,
+                params->size_max_digits) != EXIT_SUCCESS) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS &&
@@ -561,11 +591,11 @@ int main_read_integer(main_params *params, size_t *integer) {
     }
 
     if(string != NULL) {
-        OPENSSL_cleanse(string, n + 1);
+        OPENSSL_cleanse(string, params->size_max_digits + 1);
         free(string);
     }
     OPENSSL_cleanse(&string, sizeof string);
-    OPENSSL_cleanse(&n, sizeof n);
+    OPENSSL_cleanse(&params->size_max_digits, sizeof params->size_max_digits);
     OPENSSL_cleanse(&params, sizeof params);
     OPENSSL_cleanse(&integer, sizeof integer);
     return result;
@@ -725,8 +755,8 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     size_t signature_length = 0;
 
     if(result == EXIT_SUCCESS) {
-        fprintf(params->out, "Įrašyta šifrogramos baitų: %20d",
-                ciphertext_total);
+        fprintf(params->out, "Įrašyta šifrogramos baitų: ");
+        fprintf(params->out, params->size_t_format, ciphertext_total);
     }
     if(key_filename != NULL) {
         if(result == EXIT_SUCCESS && (mdctx = EVP_MD_CTX_create()) == NULL) {
@@ -755,9 +785,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
-        ciphertext_total += ciphertext_available;
-        main_write_char(params->out, '\b', 20);
-        fprintf(params->out, "%20d", ciphertext_total);
+        ciphertext_total += (size_t)ciphertext_available;
+        main_write_char(params->out, '\b', params->size_max_digits);
+        fprintf(params->out, params->size_t_format, ciphertext_total);
     }
     if(result == EXIT_SUCCESS) {
         while(!feof(in)) {
@@ -786,9 +816,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 result = EXIT_FAILURE;
                 break;
             }
-            ciphertext_total += ciphertext_available;
-            main_write_char(params->out, '\b', 20);
-            fprintf(params->out, "%20d", ciphertext_total);
+            ciphertext_total += (size_t)ciphertext_available;
+            main_write_char(params->out, '\b', params->size_max_digits);
+            fprintf(params->out, params->size_t_format, ciphertext_total);
             if(EVP_EncryptUpdate(ctx, ciphertext,
                     &ciphertext_available, plaintext,
                     (int)plaintext_available) != 1 ||
@@ -797,9 +827,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 result = EXIT_FAILURE;
                 break;
             }
-            ciphertext_total += ciphertext_available;
-            main_write_char(params->out, '\b', 20);
-            fprintf(params->out, "%20d", ciphertext_total);
+            ciphertext_total += (size_t)ciphertext_available;
+            main_write_char(params->out, '\b', params->size_max_digits);
+            fprintf(params->out, params->size_t_format, ciphertext_total);
         }
     }
     if(key_filename != NULL) {
@@ -820,9 +850,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             result = EXIT_FAILURE;
         }
         if(result == EXIT_SUCCESS) {
-            ciphertext_total += ciphertext_available;
-            main_write_char(params->out, '\b', 20);
-            fprintf(params->out, "%20d", ciphertext_total);
+            ciphertext_total += (size_t)ciphertext_available;
+            main_write_char(params->out, '\b', params->size_max_digits);
+            fprintf(params->out, params->size_t_format, ciphertext_total);
         }
     }
     if(result == EXIT_SUCCESS && EVP_EncryptFinal_ex(ctx, ciphertext,
@@ -835,9 +865,10 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
-        ciphertext_total += ciphertext_available;
-        main_write_char(params->out, '\b', 20);
-        fprintf(params->out, "%20d\n", ciphertext_total);
+        ciphertext_total += (size_t)ciphertext_available;
+        main_write_char(params->out, '\b', params->size_max_digits);
+        fprintf(params->out, params->size_t_format, ciphertext_total);
+        fprintf(params->out, "\n");
     }
 
     if(plaintext != NULL) {
@@ -1146,13 +1177,15 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         if(key_type.current_i == params->key_type_dh) {
             fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                     " failo (maksimalus ilgis yra ");
-            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->filename_length);
             fprintf(params->out, "): ");
             main_read_text(params, private_key_filename,
                     params->filename_length);
             fprintf(params->out, "Suveskite kelią iki gavėjo viešojo rakto"
                     " failo (maksimalus ilgis yra ");
-            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->filename_length);
             fprintf(params->out, "): ");
             main_read_text(params, public_key_filename,
                     params->filename_length);
@@ -1161,7 +1194,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         } else if(key_type.current_i == params->key_type_rsa) {
             fprintf(params->out, "Suveskite kelią iki gavėjo viešojo rakto"
                     " failo (maksimalus ilgis yra ");
-            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->filename_length);
             fprintf(params->out, "): ");
             main_read_text(params, public_key_filename,
                     params->filename_length);
@@ -1170,7 +1204,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         } else if(key_type.current_i == params->key_type_password) {
             fprintf(params->out, "Suveskite užšifravimo slaptažodį (maksimalus"
                     " ilgis yra ");
-            main_write_size_t(params, params->password_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->password_length);
             fprintf(params->out, "): ");
             main_read_text(params, password, params->password_length);
             fprintf(params->out, "Suvestas slaptažodis: %s\n", password);
@@ -1201,7 +1236,8 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
     if(result == EXIT_SUCCESS && sign) {
         fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                 " failo (maksimalus ilgis yra ");
-        main_write_size_t(params, params->filename_length);
+        fprintf(params->out, params->size_t_format_flex,
+                params->filename_length);
         fprintf(params->out, "): ");
         main_read_text(params, sign_key_filename, params->filename_length);
     }
@@ -1565,7 +1601,8 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                         result = EXIT_FAILURE;
                     }
                     if(key_filename != NULL) {
-                        if(result == EXIT_SUCCESS && EVP_DigestVerifyUpdate(mdctx,
+                        if(result == EXIT_SUCCESS &&
+                                EVP_DigestVerifyUpdate(mdctx,
                                     plaintext + plaintext_offset,
                                     frame_length) != 1) {
                             result = EXIT_FAILURE;
@@ -1753,7 +1790,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         if(result == EXIT_SUCCESS) {
             fprintf(params->out, "Suveskite iššifravimo slaptažodį (maksimalus"
                     " ilgis yra ");
-            main_write_size_t(params, params->password_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->password_length);
             fprintf(params->out, "): ");
             main_read_text(params, password, params->password_length);
         }
@@ -1776,7 +1814,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         if(result == EXIT_SUCCESS) {
             fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                     " failo (maksimalus ilgis yra ");
-            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->filename_length);
             fprintf(params->out, "): ");
             main_read_text(params, private_key_filename,
                     params->filename_length);
@@ -1787,13 +1826,15 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         if(result == EXIT_SUCCESS) {
             fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
                     " failo (maksimalus ilgis yra ");
-            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->filename_length);
             fprintf(params->out, "): ");
             main_read_text(params, private_key_filename,
                     params->filename_length);
             fprintf(params->out, "Suveskite kelią iki gavėjo viešojo rakto"
                     " failo (maksimalus ilgis yra ");
-            main_write_size_t(params, params->filename_length);
+            fprintf(params->out, params->size_t_format_flex,
+                    params->filename_length);
             fprintf(params->out, "): ");
             main_read_text(params, public_key_filename,
                     params->filename_length);
@@ -1818,7 +1859,8 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
     if(result == EXIT_SUCCESS && sign) {
         fprintf(params->out, "Suveskite kelią iki siuntėjo viešojo rakto rakto"
                 " failo (maksimalus ilgis yra ");
-        main_write_size_t(params, params->filename_length);
+        fprintf(params->out, params->size_t_format_flex,
+                params->filename_length);
         fprintf(params->out, "): ");
         main_read_text(params, sign_key_filename, params->filename_length);
     }

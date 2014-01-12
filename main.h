@@ -29,7 +29,7 @@ typedef struct {
     size_t filename_length;
     FILE *in;
     FILE *out;
-    size_t size_max;
+    size_t size_max_digits;
     size_t debug;
     size_t rsa_key_length_bits;
     size_t password_length;
@@ -40,7 +40,8 @@ typedef struct {
     size_t key_salt_length;
     size_t iv_length;
     size_t tag_length;
-    const char *size_t_format;
+    char *size_t_format;
+    const char *size_t_format_flex;
     size_t dh_generator_length;
     const unsigned char* dh_generator;
     size_t dh_prime_length;
