@@ -731,6 +731,7 @@ int main_write_char(FILE *f, char c, size_t n) {
     }
     if(result == EXIT_SUCCESS) {
         memset(str, c, n);
+        str[n] = 0;
         if(fprintf(f, "%s", str) < (int)n) {
             result = EXIT_FAILURE;
         }
