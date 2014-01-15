@@ -763,6 +763,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     EVP_MD_CTX *mdctx = NULL;
     unsigned char *signature = NULL;
     size_t signature_length = 0;
+    clock_t last_progress_clock = clock();
+    clock_t current_clock = 0;
+    size_t clocks_per_progress = CLOCKS_PER_SEC / 25;
 
     if(result == EXIT_SUCCESS) {
         fprintf(params->out, "Įrašyta šifrogramos baitų: ");
@@ -827,8 +830,6 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 break;
             }
             ciphertext_total += (size_t)ciphertext_available;
-            main_write_char(params->out, '\b', params->size_max_digits);
-            fprintf(params->out, params->size_t_format, ciphertext_total);
             if(EVP_EncryptUpdate(ctx, ciphertext,
                     &ciphertext_available, plaintext,
                     (int)plaintext_available) != 1 ||
@@ -838,8 +839,12 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                 break;
             }
             ciphertext_total += (size_t)ciphertext_available;
-            main_write_char(params->out, '\b', params->size_max_digits);
-            fprintf(params->out, params->size_t_format, ciphertext_total);
+            current_clock = clock();
+            if((size_t)(current_clock - last_progress_clock) > clocks_per_progress) {
+                last_progress_clock = current_clock;
+                main_write_char(params->out, '\b', params->size_max_digits);
+                fprintf(params->out, params->size_t_format, ciphertext_total);
+            }
         }
     }
     if(key_filename != NULL) {
@@ -903,6 +908,9 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         OPENSSL_cleanse(signature, signature_length);
         free(signature);
     }
+    OPENSSL_cleanse(&last_progress_clock, sizeof last_progress_clock);
+    OPENSSL_cleanse(&current_clock, sizeof current_clock);
+    OPENSSL_cleanse(&clocks_per_progress, sizeof clocks_per_progress);
     OPENSSL_cleanse(&signature, sizeof signature);
     OPENSSL_cleanse(&signature_length, sizeof signature_length);
     OPENSSL_cleanse(&key_filename, sizeof key_filename);
@@ -1483,6 +1491,9 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     unsigned char *plaintext_prev =malloc(plaintext_buffer_length);
     unsigned char *plaintext_;
     unsigned char *plaintext = malloc(plaintext_buffer_length);
+    clock_t last_progress_clock = clock();
+    clock_t current_clock = 0;
+    size_t clocks_per_progress = CLOCKS_PER_SEC / 25;
 
     if(result == EXIT_SUCCESS && (plaintext == NULL || ciphertext == NULL)) {
         result = EXIT_FAILURE;
@@ -1593,10 +1604,15 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                     if(result == EXIT_SUCCESS) {
                         plaintext_processed += frame_length;
                         plaintext_written += frame_length;
-                        main_write_char(params->out, '\b',
-                                params->size_max_digits);
-                        fprintf(params->out, params->size_t_format,
-                                plaintext_written);
+                        current_clock = clock();
+                        if((size_t)(current_clock - last_progress_clock) >
+                                clocks_per_progress) {
+                            last_progress_clock = current_clock;
+                            main_write_char(params->out, '\b',
+                                    params->size_max_digits);
+                            fprintf(params->out, params->size_t_format,
+                                    plaintext_written);
+                        }
                         frame_length = 0;
                         if(status == 3) {
                             fprintf(params->out, "\n");
@@ -1655,6 +1671,9 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     OPENSSL_cleanse(&mdctx, sizeof mdctx);
     EVP_PKEY_free(key);
     OPENSSL_cleanse(&key, sizeof key);
+    OPENSSL_cleanse(&last_progress_clock, sizeof last_progress_clock);
+    OPENSSL_cleanse(&current_clock, sizeof current_clock);
+    OPENSSL_cleanse(&clocks_per_progress, sizeof clocks_per_progress);
     OPENSSL_cleanse(&signature_length, sizeof signature_length);
     OPENSSL_cleanse(&status, sizeof status);
     OPENSSL_cleanse(&plaintext_offset, sizeof plaintext_offset);
