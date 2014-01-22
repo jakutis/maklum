@@ -442,8 +442,7 @@ int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params) {
         if(check & DH_NOT_SUITABLE_GENERATOR &&
                 BN_is_word(dh->g, DH_GENERATOR_2) &&
                 BN_mod_word(dh->p, 24) == 23) {
-                check &= ~DH_NOT_SUITABLE_GENERATOR;
-            }
+            check &= ~DH_NOT_SUITABLE_GENERATOR;
         }
         if(check) {
             result = main_error(params, 1, "main_fill_dh_params: DH_check");
