@@ -412,6 +412,7 @@ int main_generate_rsa_key(main_params *params, size_t key_length_bits,
 int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params) {
     int result = EXIT_SUCCESS;
     DH *dh = NULL;
+    int check = 0;
 
     if(result == EXIT_SUCCESS && (dh = DH_new()) == NULL) {
         result = main_error(params, 1,"main_fill_dh_params: DH_new");
@@ -430,6 +431,10 @@ int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params) {
         result = main_error(params, 1,
                 "main_fill_dh_params: BN_bin2bn (generator)");
     }
+    if(result == EXIT_SUCCESS &&
+            (DH_check(dh, &check) != 1 || check != 0)) {
+        result = main_error(params, 1, "main_fill_dh_params: DH_check");
+    }
     if(result == EXIT_SUCCESS && (*dh_params = EVP_PKEY_new()) == NULL) {
         result = main_error(params, 1, "main_fill_dh_params: EVP_PKEY_new");
     }
@@ -442,6 +447,7 @@ int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params) {
     OPENSSL_cleanse(&dh, sizeof dh);
     OPENSSL_cleanse(&params, sizeof params);
     OPENSSL_cleanse(&dh_params, sizeof dh_params);
+    OPENSSL_cleanse(&check, sizeof check);
     return result;
 }
 
