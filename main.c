@@ -432,8 +432,22 @@ int main_fill_dh_params(main_params *params, EVP_PKEY **dh_params) {
                 "main_fill_dh_params: BN_bin2bn (generator)");
     }
     if(result == EXIT_SUCCESS &&
-            (DH_check(dh, &check) != 1 || check != 0)) {
-        result = main_error(params, 1, "main_fill_dh_params: DH_check");
+            (DH_check(dh, &check) != 1)) {
+        /*
+         * OpenSSL views parameters with p==23 mod 24 (IETF style) as insecure.
+         * But they are equally secure, because
+         * http://crypto.stackexchange.com/a/12972
+         * See also http://wiki.openssl.org/index.php/Diffie-Hellman_parameters
+         */
+        if(check & DH_NOT_SUITABLE_GENERATOR &&
+                BN_is_word(dh->g, DH_GENERATOR_2) &&
+                BN_mod_word(dh->p, 24) == 23) {
+                check &= ~DH_NOT_SUITABLE_GENERATOR;
+            }
+        }
+        if(check) {
+            result = main_error(params, 1, "main_fill_dh_params: DH_check");
+        }
     }
     if(result == EXIT_SUCCESS && (*dh_params = EVP_PKEY_new()) == NULL) {
         result = main_error(params, 1, "main_fill_dh_params: EVP_PKEY_new");
