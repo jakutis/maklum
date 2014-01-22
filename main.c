@@ -56,6 +56,7 @@ int main(int argc, char **argv) {
     };
     size_t size_max_digits_digits = 0;
     const char *size_t_format_format = NULL;
+    size_t key_types_length = 4;
 
     params.debug = 0;
     params.filename_length = 255;
@@ -77,14 +78,15 @@ int main(int argc, char **argv) {
     params.key_type_dh = 1;
     params.key_type_rsa = 2;
     if(result == EXIT_SUCCESS &&
-            (params.key_types = malloc(4 * sizeof(char*))) == NULL) {
+            (params.key_types = malloc(key_types_length * sizeof(char*)))
+            == NULL) {
         result = EXIT_FAILURE;
     }
     if(result == EXIT_SUCCESS) {
         params.key_types[params.key_type_password] = "password";
         params.key_types[params.key_type_dh] = "dh";
         params.key_types[params.key_type_rsa] = "rsa";
-        params.key_types[3] = NULL;
+        params.key_types[key_types_length - 1] = NULL;
         main_digits((size_t) - 1, &params.size_max_digits);
         main_digits(params.size_max_digits, &size_max_digits_digits);
         if((params.size_t_format = malloc(1 + size_max_digits_digits + 2 + 1))
@@ -158,6 +160,7 @@ int main(int argc, char **argv) {
     OPENSSL_cleanse(&g, sizeof g);
     OPENSSL_cleanse(&p, sizeof p);
     OPENSSL_cleanse(&size_t_bytes, sizeof size_t_bytes);
+    OPENSSL_cleanse(&key_types_length, sizeof key_types_length);
     free(params.key_types);
     OPENSSL_cleanse(&params, sizeof params);
     return result;
