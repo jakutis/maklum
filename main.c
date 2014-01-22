@@ -1669,7 +1669,9 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
         free(signature);
     }
     OPENSSL_cleanse(&signature, sizeof signature);
-    EVP_MD_CTX_destroy(mdctx);
+    if(mdctx != NULL) {
+        EVP_MD_CTX_destroy(mdctx);
+    }
     OPENSSL_cleanse(&mdctx, sizeof mdctx);
     EVP_PKEY_free(key);
     OPENSSL_cleanse(&key, sizeof key);
