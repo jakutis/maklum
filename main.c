@@ -1617,7 +1617,6 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
                         }
                         frame_length = 0;
                         if(status == 3) {
-                            fprintf(params->out, "\n");
                             status = 4;
                         } else if(status == 2) {
                             status = 1;
@@ -1646,6 +1645,9 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             plaintext_left -= plaintext_processed;
         }
     }
+    main_write_char(params->out, '\b', params->size_max_digits);
+    fprintf(params->out, params->size_t_format, plaintext_written);
+    fprintf(params->out, "\n");
 
     if(ciphertext != NULL) {
         OPENSSL_cleanse(ciphertext, ciphertext_buffer_length);
