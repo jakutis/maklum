@@ -1825,7 +1825,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
             fprintf(params->out, "): ");
             main_read_text(params, private_key_filename,
                     params->filename_length);
-            fprintf(params->out, "Suveskite kelią iki gavėjo viešojo rakto"
+            fprintf(params->out, "Suveskite kelią iki siuntėjo viešojo rakto"
                     " failo (maksimalus ilgis yra ");
             fprintf(params->out, params->size_t_format_flex,
                     params->filename_length);
