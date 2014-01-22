@@ -1136,7 +1136,7 @@ int main_derive_key_dh(const char *private_key_filename,
     OPENSSL_cleanse(&skey, sizeof skey);
     OPENSSL_cleanse(&skeylen, sizeof skeylen);
     OPENSSL_cleanse(&mdctx, sizeof mdctx);
-		EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_CTX_free(ctx);
     OPENSSL_cleanse(&ctx, sizeof ctx);
     EVP_PKEY_free(pkey);
     OPENSSL_cleanse(&pkey, sizeof pkey);
