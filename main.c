@@ -868,8 +868,8 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     }
     if(result == EXIT_SUCCESS) {
         while(!feof(in)) {
-            plaintext_available = fread(plaintext, 1, params->pipe_buffer_length,
-                    in);
+            plaintext_available = fread(plaintext, 1,
+                    params->pipe_buffer_length, in);
             if(ferror(in)) {
                 result = EXIT_FAILURE;
                 break;
@@ -904,7 +904,8 @@ int main_encrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
             }
             ciphertext_total += (size_t)ciphertext_available;
             current_clock = clock();
-            if((size_t)(current_clock - last_progress_clock) > clocks_per_progress) {
+            if((size_t)(current_clock - last_progress_clock) >
+                    clocks_per_progress) {
                 last_progress_clock = current_clock;
                 main_write_char(params->out, '\b', params->size_max_digits);
                 fprintf(params->out, params->size_t_format, ciphertext_total);
@@ -1554,7 +1555,7 @@ int main_decrypt_pipe(main_params *params, EVP_CIPHER_CTX *ctx, FILE *in,
     int plaintext_chunk_length = 0;
     size_t plaintext_buffer_length = 2 * ciphertext_buffer_length;
     size_t plaintext_written = 0;
-    unsigned char *plaintext_prev =malloc(plaintext_buffer_length);
+    unsigned char *plaintext_prev = malloc(plaintext_buffer_length);
     unsigned char *plaintext_;
     unsigned char *plaintext = malloc(plaintext_buffer_length);
     clock_t last_progress_clock = clock();
