@@ -1322,7 +1322,7 @@ int main_encrypt(main_params *params, const char *plaintext_filename,
         }
     }
     if(result == EXIT_SUCCESS && sign) {
-        fprintf(params->out, "Suveskite kelią iki savo privačiojo rakto"
+        fprintf(params->out, "Suveskite kelią iki savo privačiojo RSA rakto"
                 " failo (maksimalus ilgis yra ");
         fprintf(params->out, params->size_t_format_flex,
                 params->filename_length);
@@ -1919,7 +1919,7 @@ int main_decrypt(main_params *params, const char *ciphertext_filename,
         result = main_error(params, 1, "main_decrypt: fgetc (sign)");
     }
     if(result == EXIT_SUCCESS && sign) {
-        fprintf(params->out, "Suveskite kelią iki siuntėjo viešojo rakto rakto"
+        fprintf(params->out, "Suveskite kelią iki siuntėjo viešojo RSA rakto"
                 " failo (maksimalus ilgis yra ");
         fprintf(params->out, params->size_t_format_flex,
                 params->filename_length);
