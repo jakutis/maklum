@@ -306,12 +306,15 @@ int main_generate_keys(main_params *params) {
             result = main_error(params, 1,
                     "main_generate_keys: main_generate_dh_key");
         }
-    } else {
+    } else if(key_type.current_i == params->key_type_rsa) {
         if(result == EXIT_SUCCESS && main_generate_rsa_key(params,
                     params->rsa_key_length_bits, &key) != EXIT_SUCCESS) {
             result = main_error(params, 1,
                     "main_generate_keys: main_generate_rsa_key");
         }
+    } else {
+        result = main_error(params, 0,
+                "\"password\" raktų tipas nereikalauja raktų failų");
     }
     if(result == EXIT_SUCCESS && main_write_dh_key(params,
                 private_key_filename, key, 1) != EXIT_SUCCESS) {
