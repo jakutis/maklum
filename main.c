@@ -223,14 +223,14 @@ int main_read_filename(main_params *params, const char *message,
     return result;
 }
 
-int main_write_dh_key(main_params *params, const char *filename,
+int main_write_key(main_params *params, const char *filename,
         EVP_PKEY *key, int private) {
     int result = EXIT_SUCCESS;
     BIO *bio = NULL;
 
     if(result == EXIT_SUCCESS && (bio = BIO_new_file(filename, "wb")) == NULL) {
         result = main_error(params, 1,
-                "main_write_dh_key: BIO_new_file");
+                "main_write_key: BIO_new_file");
     }
     if(result == EXIT_SUCCESS && (
                 private ?
@@ -239,7 +239,7 @@ int main_write_dh_key(main_params *params, const char *filename,
                 PEM_write_bio_PUBKEY(bio, key)
                 ) != 1) {
         result = main_error(params, 1,
-                "main_write_dh_key: PEM_write_bio_...");
+                "main_write_key: PEM_write_bio_...");
     }
 
     OPENSSL_cleanse(&params, sizeof params);
@@ -316,18 +316,18 @@ int main_generate_keys(main_params *params) {
         result = main_error(params, 0,
                 "\"password\" raktų tipas nereikalauja raktų failų");
     }
-    if(result == EXIT_SUCCESS && main_write_dh_key(params,
+    if(result == EXIT_SUCCESS && main_write_key(params,
                 private_key_filename, key, 1) != EXIT_SUCCESS) {
         result = main_error(params, 1,
-                "main_generate_keys: main_write_dh_key (private)");
+                "main_generate_keys: main_write_key (private)");
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "private key written.\n");
     }
-    if(result == EXIT_SUCCESS && main_write_dh_key(params,
+    if(result == EXIT_SUCCESS && main_write_key(params,
                 public_key_filename, key, 0) != EXIT_SUCCESS) {
         result = main_error(params, 1,
-                "main_generate_keys: main_write_dh_key (public)");
+                "main_generate_keys: main_write_key (public)");
     }
     if(result == EXIT_SUCCESS && params->debug) {
         fprintf(params->out, "public key written.\n");
