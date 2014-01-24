@@ -1777,7 +1777,7 @@ int main_read_key_type(main_params *params, main_enum *key_type) {
                 fprintf(params->out, " arba ");
             }
             if(fputs(key_type->all[i], params->out) == EOF) {
-                result = main_error(params, 1, "main_read_key: fputs");
+                result = main_error(params, 1, "main_read_key_type: fputs");
                 break;
             }
         }
@@ -1785,7 +1785,7 @@ int main_read_key_type(main_params *params, main_enum *key_type) {
             fprintf(params->out, ": ");
             result = main_read_enum(params, key_type);
             if(result != EXIT_SUCCESS) {
-                main_error(params, 1, "main_read_key: main_read_enum");
+                main_error(params, 1, "main_read_key_type: main_read_enum");
             }
         }
         if(result != EXIT_SUCCESS) {
